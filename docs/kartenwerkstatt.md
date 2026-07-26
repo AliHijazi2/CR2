@@ -385,3 +385,29 @@ liegen weiter innerhalb der Messtoleranz gleichauf.
 
 **Zu den Vorlagen:** Auf dem Referenzblatt sind zweimal Logos eines
 bestehenden Spiels eingeblendet. Die sind **nicht** nachgebaut.
+
+---
+
+## 8. Decks
+
+Beide Seiten spielen dieselben eigenen Charaktere — sonst wären sie nur
+Deko im Spielerdeck. Die übrigen vier Plätze unterscheiden sich, damit
+sich die Partien nicht spiegeln.
+
+| | Du (blau) | Gegner (rot) |
+|---|---|---|
+| Eigene Charaktere | Abdu · Yunus · Mertabi | Abdu · Yunus · Mertabi |
+| Tank / Siegbedingung | Steinwächter | Rammbock |
+| Schwarm | Straßenbande | Rattenrudel |
+| Luft | Fledermäuse | Sturmfalke |
+| Zauber | Feuerball | Splitterregen |
+| Gebäude | Speerturm | — (stattdessen Speerbrüder) |
+| **Ø Kosten** | 3.6 💧 | 3.25 💧 |
+
+**Auseinanderhalten:** Da beide Seiten dieselben Modelle benutzen, bekommen
+gegnerische Figuren einen Rotstich (13 % Mischung) und eine orange
+Bodenmarkierung; deine bleiben unverfälscht mit blauer Markierung.
+
+**Balance nach der Umstellung** (300 Partien je Stufe, fester Testspieler):
+42 / 24 / 27 % Spielersiege. Der Gegner ist spürbar stärker als vorher —
+er hat jetzt richtige Karten statt der Referenz-Platzhalter.

@@ -376,7 +376,12 @@ const TOWER_STATS = {
 
 const DECK_BLUE = ["abdu","yunus","mertabi","steinwaechter",
                    "strassenbande","fledermausschwarm","feuerball","speerturm"];
-const DECK_RED  = ["rammbock","klingenwache","bogenschuetzinnen","feuermagier",
+// Der Gegner spielt dieselben eigenen Charaktere wie du — sonst waeren
+// sie nur Deko im Spielerdeck. Die uebrigen vier Plaetze sind bewusst
+// anders besetzt als in DECK_BLUE, damit sich die Partien unterscheiden:
+// Rammbock als Siegbedingung, Rattenrudel als Schwarm, Splitterregen
+// als Zauber, Sturmfalke als Lufteinheit.
+const DECK_RED  = ["abdu","yunus","mertabi","rammbock",
                    "rattenrudel","speerbrueder","splitterregen","sturmfalke"];
 
 /* interval  = Sekunden zwischen zwei Entscheidungen (Reaktionszeit)

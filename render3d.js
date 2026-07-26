@@ -257,13 +257,44 @@ function makeBlob(r){
   return m;
 }
 function makeRing(r, team){
-  const m = new THREE.Mesh(new THREE.RingGeometry(r*0.82, r, 20),
-    new THREE.MeshBasicMaterial({ color: team === "blue" ? 0x6E97FF : 0xFF8368,
-                                  transparent:true, opacity:0.85, side:THREE.DoubleSide,
+  const col = team === "blue" ? 0x6E97FF : 0xFF7A50;
+  const g = new THREE.Group();
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(r*0.80, 22),
+    new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.26,
                                   depthWrite:false }));
-  m.rotation.x = -Math.PI/2;
-  m.position.y = 0.06;
-  return m;
+  const rim = new THREE.Mesh(new THREE.RingGeometry(r*0.78, r, 24),
+    new THREE.MeshBasicMaterial({ color:col, transparent:true, opacity:0.95,
+                                  side:THREE.DoubleSide, depthWrite:false }));
+  disc.rotation.x = rim.rotation.x = -Math.PI/2;
+  disc.position.y = 0.055; rim.position.y = 0.065;
+  g.add(disc, rim);
+  g.userData.tint = m => { disc.material.opacity = m*0.26; rim.material.opacity = m*0.95; };
+  return g;
+}
+
+/* ---- Teamfarbe an der Figur ----------------------------------------
+   Seit beide Seiten dieselben Charaktere spielen, reicht der Ring am
+   Boden allein nicht mehr zum Unterscheiden. Gegnerische Figuren
+   bekommen deshalb einen Rotstich. Die Materialien sind zwischen
+   allen Einheiten geteilt, deshalb wird pro Ausgangsmaterial genau
+   eine eingefaerbte Kopie angelegt und wiederverwendet.          */
+const _tinted = new Map();
+const TEAM_RED = new THREE.Color(0xFF4A2A);
+function tintRed(root){
+  root.traverse(o => {
+    if(!o.isMesh || !o.material || !o.material.color) return;
+    let m = _tinted.get(o.material.uuid);
+    if(!m){
+      m = o.material.clone();
+      // Achtung: Three mischt Farben im linearen Raum. Dort wirkt der
+      // gleiche Anteil deutlich kraeftiger als im sRGB-Augenmass — 0.30
+      // hat die Figuren komplett rot gefaerbt. 0.13 laesst Streifen,
+      // Gold und Stahl erkennbar und markiert trotzdem eindeutig.
+      m.color.lerp(TEAM_RED, 0.13);
+      _tinted.set(o.material.uuid, m);
+    }
+    o.material = m;
+  });
 }
 
 /* ---- Ansichten pflegen ------------------------------------------ */
@@ -274,6 +305,7 @@ function viewForUnit(u){
   const card = CARDS[u.cardId];
   const root = buildModelFor(u.cardId, card);
   const rig = root.userData.rig || {};
+  if(u.team === "red") tintRed(root);
 
   const holder = new THREE.Group();
   // Figuren etwas groesser als massstabsgetreu: aus der Vogelperspektive
@@ -283,7 +315,7 @@ function viewForUnit(u){
   scaler.add(root);
   holder.add(scaler);
   const blob = makeBlob(u.radius * 0.95);      // nur noch leichte Abdunklung
-  const ring = makeRing(u.radius * 1.25, u.team);
+  const ring = makeRing(u.radius * 1.55, u.team);
   const bar = makeBar(u.team, Math.max(0.8, u.radius * 2.2));
   holder.add(blob, ring, bar);
   scene.add(holder);
@@ -380,10 +412,11 @@ function draw(dt){
     v.bar.visible = u.deploy <= 0;
 
     if(u.frozen > 0){
-      v.ring.material.color.setHex(0x8CE1FF);
+      v.ring.children.forEach(c => c.material.color.setHex(0x8CE1FF));
       v.root.rotation.y = v.root.rotation.y;      // eingefroren: keine Animation
     } else {
-      v.ring.material.color.setHex(u.team === "blue" ? 0x6E97FF : 0xFF8368);
+      const col = u.team === "blue" ? 0x6E97FF : 0xFF7A50;
+      v.ring.children.forEach(c => c.material.color.setHex(col));
     }
   }
 
@@ -395,7 +428,7 @@ function draw(dt){
     v.root.rotation.z = v.dead * 1.5;
     v.root.scale.setScalar(Math.max(0.01, 1 - v.dead * 1.1));
     v.bar.visible = false;
-    v.ring.material.opacity = Math.max(0, 0.85 - v.dead * 1.6);
+    v.ring.userData.tint(Math.max(0, 1 - v.dead * 1.9));
     v.blob.material.opacity = Math.max(0, 0.13 - v.dead * 0.3);
     if(v.dead > 0.75){
       scene.remove(v.holder);
