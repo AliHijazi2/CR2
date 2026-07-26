@@ -29,7 +29,9 @@ function initScene(canvas){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x16241F);
@@ -37,13 +39,27 @@ function initScene(canvas){
 
   camera = new THREE.PerspectiveCamera(38, 1, 1, 140);
 
-  scene.add(new THREE.HemisphereLight(0xD6E9F5, 0x40563F, 1.7));
-  const sun = new THREE.DirectionalLight(0xFFF3DF, 2.1);
-  sun.position.set(-11, 26, 9);
-  scene.add(sun);
-  const rim = new THREE.DirectionalLight(0x9CC0FF, 0.65);
-  rim.position.set(9, 12, 40);
+  scene.add(new THREE.HemisphereLight(0xCFE4F2, 0x4A5C42, 0.95));
+
+  const sun = new THREE.DirectionalLight(0xFFF4E2, 2.3);
+  sun.position.set(-14, 30, 14);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  // Schattenkamera eng um die Arena legen: je kleiner der Ausschnitt,
+  // desto schaerfer der Schatten bei gleicher Aufloesung.
+  const sc = sun.shadow.camera;
+  sc.left = -18; sc.right = 18; sc.top = 26; sc.bottom = -26;
+  sc.near = 1; sc.far = 90;
+  sun.shadow.bias = -0.0012;
+  sun.shadow.normalBias = 0.022;
+  sun.target.position.set(AW/2, 0, AH/2);
+  scene.add(sun, sun.target);
+
+  const rim = new THREE.DirectionalLight(0x9CC0FF, 0.5);
+  rim.position.set(12, 10, 44);
   scene.add(rim);
+
+  buildEnvironment();
 
   buildArena();
 
@@ -63,26 +79,100 @@ function initScene(canvas){
   ready = true;
 }
 
+/* ---- Umgebungsspiegelung ------------------------------------------
+   Metall ohne etwas zum Spiegeln sieht immer nach Plastik aus. Statt
+   eine Umgebungskarte zu laden, baue ich eine winzige Kulisse aus
+   leuchtenden Flaechen — Himmel oben, Boden unten, ein helles Fenster
+   seitlich — und lasse Three daraus die Spiegelungskarte rechnen.  */
+function buildEnvironment(){
+  const env = new THREE.Scene();
+  const panel = (c, w, h, d, x, y, z, rx, ry) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshBasicMaterial({ color:c, side:THREE.BackSide }));
+    m.position.set(x, y, z);
+    if(rx) m.rotation.x = rx;
+    if(ry) m.rotation.y = ry;
+    env.add(m);
+    return m;
+  };
+  panel(0xCBD3D6, 20, 20, 20, 0, 0, 0);                       // neutrale Kuppel
+  const glow = (c, w, h, x, y, z, ry) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color:c }));
+    m.position.set(x, y, z);
+    m.rotation.y = ry || 0;
+    env.add(m);
+  };
+  glow(0xFFF3E2, 9, 9, -6.5, 4.5, 2, Math.PI/2);              // Sonnenseite
+  glow(0x8D9AA3, 8, 8, 6.5, 2.0, -2, -Math.PI/2);             // kuehle Gegenseite
+  glow(0x4A5442, 18, 18, 0, -8, 0, 0);                        // Wiese von unten
+
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  scene.environment = pmrem.fromScene(env, 0.04).texture;
+  // Wichtig: die Umgebung wirkt in Three als Licht auf JEDES Material,
+  // nicht nur auf Metall. Bei voller Staerke faerbt sie Haut und Stoff
+  // mit ein — deshalb deutlich heruntergeregelt.
+  scene.environmentIntensity = 0.38;
+  pmrem.dispose();
+}
+
+/* ---- Bodenstruktur -------------------------------------------------
+   Eine gleichmaessig gruene Flaeche wirkt wie Filz. Ein bisschen
+   Rauschen und ein paar hellere Buendel geben ihr Tiefe.          */
+function grassTexture(base, spots){
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = c.getContext("2d");
+  g.fillStyle = base;
+  g.fillRect(0, 0, 256, 256);
+  for(let i = 0; i < 2600; i++){
+    const x = Math.random()*256, y = Math.random()*256;
+    const l = (Math.random()-0.5) * 26;
+    g.fillStyle = `rgba(${l>0?255:0},${l>0?255:0},${l>0?200:0},${Math.abs(l)/150})`;
+    g.fillRect(x, y, 2.2, 1.2);
+  }
+  for(let i = 0; i < spots; i++){
+    const x = Math.random()*256, y = Math.random()*256;
+    const r = 6 + Math.random()*16;
+    const grd = g.createRadialGradient(x, y, 0, x, y, r);
+    grd.addColorStop(0, "rgba(255,255,210,0.10)");
+    grd.addColorStop(1, "rgba(255,255,210,0)");
+    g.fillStyle = grd;
+    g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  // Ohne diese Zeile behandelt Three die Textur als linear und der
+  // Rasen wirkt ausgewaschen.
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(6, 10);
+  return t;
+}
+
 /* ---- Arena ------------------------------------------------------- */
 function buildArena(){
   const half = { x: AW/2, z: AH/2 };
 
-  const groundMat = (c) => new THREE.MeshStandardMaterial({ color:c, roughness:0.95 });
+  const grass = grassTexture("#5F8C52", 60);
+  const groundMat = (c, textured) => new THREE.MeshStandardMaterial({
+    color:c, roughness:0.97, metalness:0.0, map: textured ? grass : null });
   const mk = (w, d, x, z, c, y) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d), groundMat(c));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d), groundMat(c, true));
     m.position.set(x, (y||0) - 0.2, z);
+    m.receiveShadow = true;
     scene.add(m);
     return m;
   };
 
   // Zwei Spielfeldhälften, leicht unterschiedlich, damit die Mitte lesbar ist
-  mk(AW, RIVER.y0,        half.x, RIVER.y0/2,                 0x4A7048);
-  mk(AW, AH - RIVER.y1,   half.x, RIVER.y1 + (AH-RIVER.y1)/2, 0x4F7A4C);
+  mk(AW, RIVER.y0,        half.x, RIVER.y0/2,                 0xBFCFB2);
+  mk(AW, AH - RIVER.y1,   half.x, RIVER.y1 + (AH-RIVER.y1)/2, 0xC9D9BB);
 
   // Fluss: tiefer gelegt, damit die Böschung Schatten wirft
   const river = new THREE.Mesh(
     new THREE.BoxGeometry(AW, 0.34, RIVER.y1 - RIVER.y0),
-    new THREE.MeshStandardMaterial({ color:0x1E6B87, roughness:0.18, metalness:0.35 }));
+    new THREE.MeshStandardMaterial({ color:0x2A7C99, roughness:0.06, metalness:0.55 }));
   river.position.set(half.x, -0.30, (RIVER.y0 + RIVER.y1)/2);
   scene.add(river);
 
@@ -92,12 +182,14 @@ function buildArena(){
       new THREE.BoxGeometry(BRIDGE_HALF*2, 0.22, RIVER.y1 - RIVER.y0 + 0.9),
       groundMat(0x7A6045));
     b.position.set(bx, 0.02, (RIVER.y0 + RIVER.y1)/2);
+    b.castShadow = true; b.receiveShadow = true;
     scene.add(b);
     for(const sx of [-1, 1]){
       for(let i = 0; i < 4; i++){
         const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.12), groundMat(0x5C4632));
         p.position.set(bx + sx*(BRIDGE_HALF - 0.08), 0.22,
                        RIVER.y0 - 0.35 + i * ((RIVER.y1 - RIVER.y0 + 0.7) / 3));
+        p.castShadow = true;
         scene.add(p);
       }
     }
@@ -159,7 +251,7 @@ function setBar(g, frac){
 }
 function makeBlob(r){
   const m = new THREE.Mesh(new THREE.CircleGeometry(r, 14),
-    new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.28, depthWrite:false }));
+    new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.13, depthWrite:false }));
   m.rotation.x = -Math.PI/2;
   m.position.y = 0.05;
   return m;
@@ -190,7 +282,7 @@ function viewForUnit(u){
   scaler.scale.setScalar(1.45);
   scaler.add(root);
   holder.add(scaler);
-  const blob = makeBlob(u.radius * 1.15);
+  const blob = makeBlob(u.radius * 0.95);      // nur noch leichte Abdunklung
   const ring = makeRing(u.radius * 1.25, u.team);
   const bar = makeBar(u.team, Math.max(0.8, u.radius * 2.2));
   holder.add(blob, ring, bar);
@@ -304,7 +396,7 @@ function draw(dt){
     v.root.scale.setScalar(Math.max(0.01, 1 - v.dead * 1.1));
     v.bar.visible = false;
     v.ring.material.opacity = Math.max(0, 0.85 - v.dead * 1.6);
-    v.blob.material.opacity = Math.max(0, 0.28 - v.dead * 0.5);
+    v.blob.material.opacity = Math.max(0, 0.13 - v.dead * 0.3);
     if(v.dead > 0.75){
       scene.remove(v.holder);
       unitViews.delete(id);

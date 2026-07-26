@@ -2,39 +2,45 @@
 /* ============================================================
    MODELLE — alle 3D-Figuren, von Hand aus Grundkörpern gebaut
 
-   Es gibt keine Modell-Dateien. Jede Figur entsteht hier im Code
-   aus Kästen, Kugeln, Zylindern und Kegeln. Das hat drei Vorteile:
-   keine Downloads, jede Figur ist eine lesbare Funktion, und
-   Farben oder Proportionen ändert man an einer Stelle.
+   Es gibt keine Modell-Dateien. Jede Figur entsteht hier im Code.
+
+   Drei Regeln, damit nichts blockhaft wirkt:
+     1. KEIN flatShading. Harte Facetten sind der Hauptgrund,
+        warum Grundkörper nach Klötzchen aussehen.
+     2. Runde Körper zuerst: Kapseln für Gliedmaßen, Drehprofile
+        (Lathe) für Rumpf und Türme, Kästen nur für Kanten,
+        die wirklich kantig sein sollen.
+     3. Ausreichend Segmente. Eine Kugel mit 8 Segmenten ist ein
+        Kristall, mit 20 eine Kugel.
 
    Maßstab: 1 Einheit = 1 Arena-Kachel. Abdu ist ~1.6 hoch.
-   Blickrichtung: jede Figur schaut nach +Z. Der Renderer dreht
-   sie über rotation.y in die Laufrichtung.
+   Blickrichtung: jede Figur schaut nach +Z.
 
    Jede Figur liefert eine Group mit .userData.rig zurück:
-     { hips, torso, head, legL, legR, armL, armR, prop, bob }
-   Der Renderer bewegt genau diese Teile — er muss nichts über
-   den inneren Aufbau einer Figur wissen.
+     { hips, torso, head, legL, legR, armL, armR, prop, height }
    ============================================================ */
 
 const PAL = {
-  skin:      0xE3B189,
-  skinDark:  0xC28C63,
-  hair:      0x2B1E16,
-  steel:     0x8E949B,
-  steelDark: 0x565C64,
-  steelLite: 0xB9C0C7,
-  leather:   0x6E4A2E,
-  leatherDk: 0x46301E,
-  fur:       0x7B5C3B,
-  furDark:   0x5A422A,
-  cloth:     0x3D4A5B,
-  copper:    0xB2603A,
-  wood:      0x6B4B32,
-  bone:      0xD9CBB0,
+  skin:      0xD9A277,
+  skinDark:  0xB07F58,
+  hair:      0x2A1D14,
+  steel:     0x9AA1A9,
+  steelDark: 0x4E545C,
+  steelLite: 0xC3CAD2,
+  leather:   0x6B4527,
+  leatherDk: 0x40291657 & 0xFFFFFF,
+  fur:       0x7E5E3C,
+  furDark:   0x543E28,
+  furLite:   0x9A7850,
+  cloth:     0x3A4757,
+  clothDk:   0x27313D,
+  copper:    0xAF5F35,
+  wood:      0x6A4A31,
+  bone:      0xD5C7AC,
   teamBlue:  0x4C7DFF,
   teamRed:   0xFF5A3C,
 };
+PAL.leatherDk = 0x402916;
 
 /* ---- Material- und Geometrie-Vorrat -------------------------------
    Einheiten entstehen und sterben im Sekundentakt. Ohne diesen
@@ -45,13 +51,18 @@ function mat(color, opts){
   let m = _mats.get(key);
   if(!m){
     m = new THREE.MeshStandardMaterial(Object.assign({
-      color, roughness:0.72, metalness:0.0, flatShading:true,
+      color, roughness:0.78, metalness:0.02,
     }, opts || {}));
     _mats.set(key, m);
   }
   return m;
 }
-const metal = c => mat(c, { roughness:0.34, metalness:0.75, flatShading:true });
+/** Metall: braucht wenig Rauheit und viel Metallanteil, damit die
+    Umgebungsspiegelung aus render3d.js überhaupt sichtbar wird. */
+const metal = (c, rough) => mat(c, { roughness: rough === undefined ? 0.32 : rough, metalness:0.92 });
+const skin  = c => mat(c, { roughness:0.62, metalness:0.0 });
+const cloth = c => mat(c, { roughness:0.92, metalness:0.0 });
+const hide  = c => mat(c, { roughness:0.68, metalness:0.03 });
 
 const _geos = new Map();
 function geo(key, make){
@@ -59,151 +70,241 @@ function geo(key, make){
   if(!g){ g = make(); _geos.set(key, g); }
   return g;
 }
-const box  = (w,h,d) => geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w,h,d));
-const ball = (r,s)   => geo(`s${r},${s||8}`,   () => new THREE.SphereGeometry(r, s||8, (s||8)>>1));
-const tube = (rt,rb,h,s) => geo(`c${rt},${rb},${h},${s||8}`, () => new THREE.CylinderGeometry(rt,rb,h,s||8));
-const cone = (r,h,s) => geo(`k${r},${h},${s||6}`, () => new THREE.ConeGeometry(r,h,s||6));
 
-/** Kurzform: Mesh bauen und gleich positionieren. */
+/* Runde Grundkörper in brauchbarer Auflösung */
+const capsule = (r, len, s) =>
+  geo(`p${r},${len},${s||14}`, () => new THREE.CapsuleGeometry(r, len, 4, s || 14));
+const ball = (r, s) =>
+  geo(`s${r},${s||20}`, () => new THREE.SphereGeometry(r, s || 20, (s || 20) >> 1));
+const dome = (r, s) =>
+  geo(`d${r},${s||20}`, () => new THREE.SphereGeometry(r, s || 20, 10, 0, Math.PI*2, 0, Math.PI/2));
+const tube = (rt, rb, h, s) =>
+  geo(`c${rt},${rb},${h},${s||16}`, () => new THREE.CylinderGeometry(rt, rb, h, s || 16));
+const spike = (r, h, s) =>
+  geo(`k${r},${h},${s||12}`, () => new THREE.ConeGeometry(r, h, s || 12));
+const box = (w, h, d, r) =>
+  geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
+const ring = (r, t, s) =>
+  geo(`t${r},${t},${s||16}`, () => new THREE.TorusGeometry(r, t, 8, s || 16));
+
+/** Drehprofil: aus einer Silhouette einen runden Körper machen.
+    Damit werden Rumpf, Stiefel und Türme rund statt eckig. */
+function lathe(key, pts, seg){
+  return geo("l" + key, () => new THREE.LatheGeometry(
+    pts.map(([x, y]) => new THREE.Vector2(Math.max(0.0001, x), y)), seg || 18));
+}
+
 function part(g, m, x, y, z){
   const mesh = new THREE.Mesh(g, m);
-  mesh.position.set(x||0, y||0, z||0);
+  mesh.position.set(x || 0, y || 0, z || 0);
+  mesh.castShadow = true;
   return mesh;
 }
-/** Gelenk: leere Group als Drehpunkt, damit Gliedmaßen schwingen können. */
 function joint(x, y, z){
   const g = new THREE.Group();
-  g.position.set(x||0, y||0, z||0);
+  g.position.set(x || 0, y || 0, z || 0);
   return g;
 }
 
 /* ============================================================
    ABDU — Nahkämpfer, Fraktion Eisenband
-   Nach dem Referenzblatt: Stachel-Schulterpanzer, Fellmantel,
-   Panzerhandschuhe, doppelköpfige Axt, Brille, Kinnbart.
    ============================================================ */
 function buildAbdu(){
   const root = new THREE.Group();
-
-  const hips = joint(0, 0.52, 0);
+  const hips = joint(0, 0.56, 0);
   root.add(hips);
 
-  /* --- Beine ------------------------------------------------ */
+  /* --- Beine: Kapseln, Stiefel als Drehprofil ---------------- */
+  const legProfile = lathe("boot", [
+    [0.00, 0.00], [0.105, 0.01], [0.125, 0.06], [0.118, 0.13],
+    [0.100, 0.18], [0.098, 0.22], [0.00, 0.23],
+  ]);
   const leg = side => {
-    const j = joint(0.14 * side, 0, 0);
-    j.add(part(box(0.20, 0.34, 0.20), mat(PAL.cloth), 0, -0.17, 0));
-    // Stiefel mit Metallkappe
-    j.add(part(box(0.23, 0.16, 0.29), mat(PAL.leatherDk), 0, -0.42, 0.02));
-    j.add(part(box(0.24, 0.07, 0.13), metal(PAL.steelDark), 0, -0.46, 0.12));
+    const j = joint(0.135 * side, 0, 0);
+    const thigh = part(capsule(0.090, 0.17, 14), cloth(PAL.cloth), 0, -0.13, 0);
+    const knee  = part(ball(0.072, 14), hide(PAL.leatherDk), 0, -0.255, 0.008);
+    const calf  = part(capsule(0.068, 0.15, 14), hide(PAL.leather), 0, -0.35, 0.004);
+    const boot  = part(legProfile, hide(PAL.leatherDk), 0, -0.50, 0.01);
+    boot.scale.set(1.15, 1.0, 1.5);
+    const cap = part(dome(0.088, 16), metal(PAL.steelDark, 0.4), 0, -0.47, 0.075);
+    cap.rotation.x = Math.PI * 0.42;
+    cap.scale.set(1.15, 0.7, 1.2);
+    j.add(thigh, knee, calf, boot, cap);
     return j;
   };
   const legL = leg(-1), legR = leg(1);
   hips.add(legL, legR);
 
-  /* --- Rumpf ------------------------------------------------ */
-  const torso = joint(0, 0.06, 0);
+  /* --- Rumpf: ein Drehprofil, taillieren statt stapeln -------- */
+  const torso = joint(0, 0.04, 0);
   hips.add(torso);
 
-  torso.add(part(box(0.46, 0.42, 0.28), mat(PAL.cloth), 0, 0.20, 0));           // Wams
-  torso.add(part(box(0.40, 0.20, 0.30), metal(PAL.steelDark), 0, 0.12, 0));      // Brustplatte
-  torso.add(part(box(0.44, 0.09, 0.31), mat(PAL.leather), 0, 0.02, 0));          // Gürtel
-  torso.add(part(box(0.10, 0.10, 0.06), metal(PAL.copper), 0, 0.02, 0.16));      // Schnalle
-  // Riemenkreuz über der Brust
-  const strap = a => {
-    const s = part(box(0.42, 0.06, 0.03), mat(PAL.leatherDk), 0, 0.22, 0.15);
-    s.rotation.z = a; return s;
-  };
-  torso.add(strap(0.6), strap(-0.6));
+  const bodyProfile = lathe("abdutorso", [
+    [0.000, 0.00], [0.148, 0.01], [0.158, 0.07], [0.139, 0.16],
+    [0.168, 0.26], [0.205, 0.35], [0.198, 0.44], [0.145, 0.49], [0.000, 0.50],
+  ], 20);
+  const body = part(bodyProfile, cloth(PAL.cloth), 0, 0, 0);
+  body.scale.set(1.16, 1, 0.90);                       // breite Schultern, flacher Rücken
+  torso.add(body);
 
-  /* --- Fellmantel ------------------------------------------
-     Ein Kranz aus schmalen, unterschiedlich langen Zotteln —
-     das liest sich aus der Vogelperspektive als Fell, ohne
-     dass echtes Haar berechnet werden muss.                  */
-  const mantle = joint(0, 0.34, 0);
-  torso.add(mantle);
-  for(let i = 0; i < 14; i++){
-    const a = (i / 14) * Math.PI * 2;
-    const long = Math.cos(a) < -0.2 ? 1.5 : 1.0;          // hinten länger
-    const r = 0.26;
-    const t = part(box(0.11, 0.20 * long, 0.09),
-                   mat(i % 2 ? PAL.fur : PAL.furDark),
-                   Math.sin(a) * r, -0.09 * long, Math.cos(a) * r);
-    t.rotation.y = a;
-    t.rotation.x = Math.cos(a) * 0.25;
-    mantle.add(t);
+  // Brustpanzer als zweites, etwas größeres Profil nur über der Brust
+  const plate = part(lathe("abduplate", [
+    [0.000, 0.00], [0.175, 0.01], [0.200, 0.07], [0.213, 0.15], [0.190, 0.20], [0.000, 0.21],
+  ], 20), metal(PAL.steelDark, 0.38), 0, 0.24, 0);
+  plate.scale.set(1.16, 1, 0.93);
+  torso.add(plate);
+
+  // Gürtel und Schnalle
+  const belt = part(ring(0.175, 0.028, 20), hide(PAL.leather), 0, 0.09, 0);
+  belt.rotation.x = Math.PI/2; belt.scale.set(1.12, 0.9, 0.95);
+  torso.add(belt);
+  torso.add(part(ball(0.038, 14), metal(PAL.copper, 0.3), 0, 0.09, 0.155));
+
+  // Riemenkreuz
+  for(const a of [0.62, -0.62]){
+    const s = part(box(0.40, 0.038, 0.022), hide(PAL.leatherDk), 0, 0.30, 0.145);
+    s.rotation.z = a;
+    torso.add(s);
   }
-  mantle.add(part(tube(0.27, 0.24, 0.12, 10), mat(PAL.fur), 0, 0.02, 0));
 
-  /* --- Schulterpanzer mit Stacheln -------------------------- */
+  /* --- Fellmantel: drei versetzte Lagen aus weichen Zotteln --- */
+  const mantle = joint(0, 0.44, 0);
+  torso.add(mantle);
+  const tuftGeo = capsule(0.036, 0.085, 8);
+  for(let layer = 0; layer < 2; layer++){
+    const n = 11 + layer * 3;
+    const rad = 0.235 + layer * 0.04;
+    for(let i = 0; i < n; i++){
+      const a = (i / n) * Math.PI * 2 + layer * 0.35;
+      // Vor der Brust bleibt das Fell weg — dort sitzt der Panzer.
+      if(Math.cos(a) > 0.45) continue;
+      const back = Math.cos(a) < -0.2 ? 1.8 : 0.9;
+      const col = [PAL.fur, PAL.furDark, PAL.furLite][(i + layer) % 3];
+      const t = part(tuftGeo, cloth(col),
+                     Math.sin(a) * rad, -0.04 - layer * 0.045 - 0.035 * back, Math.cos(a) * rad);
+      t.scale.set(1, back, 1);
+      t.rotation.set(Math.cos(a) * 0.34, a, -Math.sin(a) * 0.34);
+      mantle.add(t);
+    }
+  }
+  const collar = part(lathe("collar", [
+    [0.00, 0.00], [0.20, 0.02], [0.225, 0.07], [0.18, 0.12], [0.00, 0.13],
+  ], 20), cloth(PAL.fur), 0, -0.05, -0.02);
+  collar.scale.set(1.25, 1, 1.1);
+  mantle.add(collar);
+
+  /* --- Schulterpanzer: Halbkugel mit glatten Stacheln --------- */
   const pauldron = side => {
-    const g = joint(0.30 * side, 0.36, 0);
-    g.add(part(ball(0.19, 8), metal(PAL.steel), 0, 0, 0));
+    const g = joint(0.275 * side, 0.41, 0);
+    const shell = part(dome(0.135, 20), metal(PAL.steel, 0.3), 0, 0, 0);
+    shell.scale.set(1.05, 0.95, 1.15);
+    shell.rotation.z = -0.28 * side;
+    g.add(shell);
+    const trim = part(ring(0.135, 0.018, 20), metal(PAL.steelDark, 0.4), 0, 0, 0);
+    trim.rotation.x = Math.PI/2; trim.scale.set(1.05, 1.15, 1);
+    g.add(trim);
     for(let i = 0; i < 4; i++){
-      const a = -0.5 + i * 0.42;
-      const s = part(cone(0.045, 0.15, 5), metal(PAL.steelLite),
-                     Math.sin(a) * 0.16 * side, 0.10, Math.cos(a) * 0.16 - 0.02);
-      s.rotation.z = -0.5 * side;
+      const a = -0.62 + i * 0.42;
+      const s = part(spike(0.030, 0.125, 12), metal(PAL.steelLite, 0.28),
+                     Math.sin(a) * 0.11 * side, 0.095, Math.cos(a) * 0.12 - 0.02);
+      s.rotation.set(0.2, 0, -0.55 * side);
       g.add(s);
     }
     return g;
   };
   torso.add(pauldron(-1), pauldron(1));
 
-  /* --- Arme -------------------------------------------------- */
+  /* --- Arme --------------------------------------------------- */
   const arm = side => {
-    const j = joint(0.30 * side, 0.34, 0);
-    j.add(part(box(0.15, 0.30, 0.15), mat(PAL.skin), 0, -0.16, 0));            // Oberarm
-    j.add(part(box(0.17, 0.16, 0.17), metal(PAL.steel), 0, -0.36, 0));         // Panzerhandschuh
-    for(let i = 0; i < 3; i++)                                                 // Knöchelstacheln
-      j.add(part(cone(0.028, 0.08, 5), metal(PAL.steelLite),
-                 (-0.05 + i * 0.05), -0.36, 0.09));
+    const j = joint(0.255 * side, 0.395, 0);
+    j.add(part(capsule(0.062, 0.19, 14), skin(PAL.skin), 0, -0.145, 0));
+    j.add(part(ball(0.058, 12), skin(PAL.skin), 0, -0.275, 0));
+    j.add(part(capsule(0.055, 0.16, 14), skin(PAL.skinDark), 0, -0.375, 0));
+    const gaunt = part(ball(0.078, 16), metal(PAL.steel, 0.34), 0, -0.485, 0);
+    gaunt.scale.set(1, 1.15, 1.05);
+    j.add(gaunt);
+    for(let i = 0; i < 3; i++)
+      j.add(part(spike(0.018, 0.055, 10), metal(PAL.steelLite, 0.3),
+                 (-0.040 + i * 0.040) * side, -0.480, 0.066));
     return j;
   };
   const armL = arm(-1), armR = arm(1);
   torso.add(armL, armR);
 
-  /* --- Kopf -------------------------------------------------- */
-  const head = joint(0, 0.60, 0);
+  /* --- Kopf ---------------------------------------------------- */
+  torso.add(part(tube(0.070, 0.082, 0.13, 14), skin(PAL.skinDark), 0, 0.545, -0.005));
+  const head = joint(0, 0.70, 0);
   torso.add(head);
-  head.add(part(box(0.30, 0.32, 0.29), mat(PAL.skin), 0, 0.02, 0));
-  head.add(part(box(0.32, 0.14, 0.31), mat(PAL.hair), 0, 0.16, -0.01));        // Haar
-  head.add(part(box(0.30, 0.16, 0.10), mat(PAL.hair), 0, 0.09, -0.15));        // Nacken
-  head.add(part(box(0.14, 0.05, 0.04), mat(PAL.hair), 0, -0.07, 0.15));        // Schnurrbart
-  head.add(part(box(0.09, 0.09, 0.04), mat(PAL.hair), 0, -0.13, 0.15));        // Kinnbart
-  // Runde Brille
-  const lens = x => {
-    const l = part(geo("ring", () => new THREE.TorusGeometry(0.055, 0.013, 6, 12)),
-                   metal(PAL.copper), x, 0.02, 0.15);
-    return l;
-  };
-  head.add(lens(-0.08), lens(0.08));
-  head.add(part(box(0.05, 0.012, 0.012), metal(PAL.copper), 0, 0.02, 0.16));
 
-  /* --- Doppelköpfige Axt ------------------------------------
-     Wird an die rechte Hand gehängt, damit sie jeden Schwung
-     der Schulter mitmacht.                                    */
-  const axe = joint(0, -0.38, 0.06);
+  const skull = part(ball(0.155, 20), skin(PAL.skin), 0, 0.02, 0);
+  skull.scale.set(1.0, 1.1, 0.98);
+  head.add(skull);
+  head.add(part(capsule(0.058, 0.04, 12), skin(PAL.skin), 0, -0.06, 0.10));   // Kinn
+  head.add(part(capsule(0.06, 0.05, 12), skin(PAL.skinDark), 0, 0.06, -0.14));// Nacken
+
+  for(const ex of [-0.058, 0.058]){                                   // Augen
+    const e = part(ball(0.020, 12), mat(0xF2EDE4, { roughness:0.35 }), ex, 0.030, 0.126);
+    const ir = part(ball(0.011, 10), mat(0x3A2A1C, { roughness:0.3 }), ex, 0.030, 0.140);
+    head.add(e, ir);
+    const brow = part(box(0.048, 0.014, 0.02), cloth(PAL.hair), ex, 0.068, 0.135);
+    brow.rotation.z = ex > 0 ? -0.16 : 0.16;
+    head.add(brow);
+  }
+
+  // Haar: Kappe über dem Schädel, hinten länger
+  const hair = part(dome(0.163, 20), cloth(PAL.hair), 0, 0.03, -0.005);
+  hair.scale.set(1.02, 1.12, 1.02);
+  head.add(hair);
+  const nape = part(ball(0.115, 16), cloth(PAL.hair), 0, 0.00, -0.10);
+  nape.scale.set(1.05, 1.0, 0.8);
+  head.add(nape);
+
+  // Bart: Schnurrbart plus Kinnbart, weiche Formen
+  const mous = part(capsule(0.026, 0.075, 10), cloth(PAL.hair), 0, -0.035, 0.135);
+  mous.rotation.z = Math.PI/2;
+  head.add(mous);
+  const goat = part(ball(0.052, 14), cloth(PAL.hair), 0, -0.085, 0.115);
+  goat.scale.set(0.85, 1.15, 0.7);
+  head.add(goat);
+
+  // Runde Brille
+  for(const x of [-0.058, 0.058]){
+    const l = part(ring(0.042, 0.0085, 20), metal(PAL.copper, 0.22), x, 0.030, 0.146);
+    head.add(l);
+    const arm2 = part(box(0.075, 0.008, 0.008), metal(PAL.copper, 0.22), x * 1.9, 0.036, 0.09);
+    head.add(arm2);
+  }
+  head.add(part(tube(0.008, 0.008, 0.045, 8), metal(PAL.copper, 0.25), 0, 0.025, 0.14)
+           , part(ball(0.017, 10), skin(PAL.skinDark), 0, -0.005, 0.155));   // Nase
+
+  /* --- Doppelköpfige Axt --------------------------------------- */
+  const axe = joint(0, -0.485, 0.045);        // sitzt im Panzerhandschuh
   armR.add(axe);
-  axe.rotation.set(-0.5, 0, 0.35);
-  axe.add(part(tube(0.035, 0.04, 1.05, 6), mat(PAL.wood), 0, 0.18, 0));         // Stiel
-  axe.add(part(ball(0.055, 6), metal(PAL.steelDark), 0, -0.35, 0));             // Knauf
+  axe.rotation.set(-0.30, 0.10, -0.52);      // schraeg nach hinten oben
+  axe.add(part(tube(0.026, 0.030, 0.92, 12), hide(PAL.wood), 0, 0.16, 0));
+  axe.add(part(ball(0.040, 14), metal(PAL.steelDark, 0.35), 0, -0.30, 0));
+  const grip = part(ring(0.036, 0.011, 14), hide(PAL.leatherDk), 0, -0.10, 0);
+  grip.rotation.x = Math.PI/2;
+  axe.add(grip);
 
   const bladeShape = new THREE.Shape();
-  bladeShape.moveTo(0, -0.03);
-  bladeShape.lineTo(0.26, -0.24);
-  bladeShape.quadraticCurveTo(0.40, 0, 0.26, 0.24);
-  bladeShape.lineTo(0, 0.03);
+  bladeShape.moveTo(0, -0.024);
+  bladeShape.lineTo(0.135, -0.145);
+  bladeShape.quadraticCurveTo(0.245, 0, 0.135, 0.145);
+  bladeShape.lineTo(0, 0.024);
   bladeShape.closePath();
-  const bladeGeo = geo("blade", () => new THREE.ExtrudeGeometry(bladeShape, {
-    depth:0.045, bevelEnabled:true, bevelSize:0.012, bevelThickness:0.012, bevelSegments:1,
+  const bladeGeo = geo("blade2", () => new THREE.ExtrudeGeometry(bladeShape, {
+    depth:0.034, bevelEnabled:true, bevelSize:0.012, bevelThickness:0.011, bevelSegments:3,
+    curveSegments:12,
   }));
   for(const s of [1, -1]){
-    const b = part(bladeGeo, metal(PAL.steel), 0, 0.66, -0.022);
+    const b = part(bladeGeo, metal(PAL.steel, 0.24), 0, 0.58, -0.017);
     b.scale.x = s;
     axe.add(b);
-    const rune = part(box(0.12, 0.03, 0.05), metal(PAL.copper), 0.17 * s, 0.66, 0);
-    axe.add(rune);
+    const inlay = part(box(0.065, 0.020, 0.040), metal(PAL.copper, 0.3), 0.10 * s, 0.58, 0);
+    axe.add(inlay);
   }
+  axe.add(part(tube(0.038, 0.038, 0.13, 12), metal(PAL.steelDark, 0.35), 0, 0.58, 0));
 
   root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop:axe, height:1.62 };
   return root;
@@ -211,55 +312,67 @@ function buildAbdu(){
 
 /* ============================================================
    ALLGEMEINE FIGUREN
-   Für alle Karten, die noch kein eigenes Modell haben. Sie
-   unterscheiden sich durch Silhouette, Größe und Akzentfarbe —
-   genug, um sie im Spiel auseinanderzuhalten.
    ============================================================ */
 const ACCENT = {
-  steinwaechter:0x9AA3A8, klingenwache:0xB9C0C7, rammbock:0x8B5A2B,
-  rattenrudel:0x7A6A5A,  strassenbande:0xA33C3C, speerbrueder:0xC08A3E,
-  bogenschuetzinnen:0x3E8E5A, feuermagier:0xE2662C, fernrohrschuetzin:0x5A7FA8,
-  sturmfalke:0x8899AA,   fledermausschwarm:0x4A3A55, glockenballon:0xC94F4F,
-  speerturm:0x9A8A6E,    bollwerk:0x8A8070,
+  steinwaechter:0x8F9AA0, klingenwache:0xAEB6BE, rammbock:0x8A5A2E,
+  rattenrudel:0x7C6B59,  strassenbande:0x9E3B3B, speerbrueder:0xBC8940,
+  bogenschuetzinnen:0x3B8A58, feuermagier:0xDD6528, fernrohrschuetzin:0x587DA6,
+  sturmfalke:0x8697A9,   fledermausschwarm:0x4A3A55, glockenballon:0xC44C4C,
+  speerturm:0x998969,    bollwerk:0x877E6E,
 };
-
 function accentOf(cardId){
-  const c = ACCENT[cardId];
-  if(typeof c === "number") return c;
-  // Ableitung aus dem Namen, damit auch neue Karten eine feste Farbe haben
+  if(typeof ACCENT[cardId] === "number") return ACCENT[cardId];
   let h = 0;
   for(let i = 0; i < cardId.length; i++) h = (h * 31 + cardId.charCodeAt(i)) >>> 0;
-  return new THREE.Color().setHSL((h % 360) / 360, 0.42, 0.5).getHex();
+  return new THREE.Color().setHSL((h % 360) / 360, 0.4, 0.48).getHex();
 }
 
-/** Läufer: Nahkämpfer, Fernkämpfer und Schwärme teilen sich dieses Gerüst. */
+/** Läufer: gemeinsames Gerüst für Nahkämpfer, Schützen und Schwärme. */
 function buildWalker(card, cardId){
   const root = new THREE.Group();
   const acc = accentOf(cardId);
-  const s = Math.max(0.7, card.radius / 0.45);          // Schwärme sind kleiner
+  const s = Math.max(0.72, card.radius / 0.45);
   const ranged = card.range >= 2.5;
+  const heavy = !ranged && card.hp >= 1200;
 
-  const hips = joint(0, 0.46 * s, 0);
+  const hips = joint(0, 0.50 * s, 0);
   root.add(hips);
 
   const leg = side => {
-    const j = joint(0.10 * s * side, 0, 0);
-    j.add(part(box(0.15*s, 0.32*s, 0.15*s), mat(PAL.cloth), 0, -0.16*s, 0));
-    j.add(part(box(0.18*s, 0.10*s, 0.24*s), mat(PAL.leatherDk), 0, -0.36*s, 0.03*s));
+    const j = joint(0.105 * s * side, 0, 0);
+    j.add(part(capsule(0.072*s, 0.17*s, 12), cloth(PAL.cloth), 0, -0.13*s, 0));
+    j.add(part(capsule(0.064*s, 0.13*s, 12), hide(PAL.leather), 0, -0.30*s, 0));
+    const b = part(ball(0.082*s, 14), hide(PAL.leatherDk), 0, -0.43*s, 0.02*s);
+    b.scale.set(1, 0.75, 1.45);
+    j.add(b);
     return j;
   };
   const legL = leg(-1), legR = leg(1);
   hips.add(legL, legR);
 
-  const torso = joint(0, 0.05*s, 0);
+  const torso = joint(0, 0.04*s, 0);
   hips.add(torso);
-  torso.add(part(box(0.36*s, (ranged?0.34:0.40)*s, 0.24*s), mat(acc), 0, 0.18*s, 0));
-  torso.add(part(box(0.40*s, 0.08*s, 0.26*s), mat(PAL.leather), 0, 0.02*s, 0));
-  if(!ranged) torso.add(part(box(0.34*s, 0.16*s, 0.26*s), metal(PAL.steelDark), 0, 0.14*s, 0));
+  const prof = lathe(`w${ranged?1:0}${heavy?1:0}`, [
+    [0.000, 0.00], [0.125, 0.01], [0.142, 0.08], [0.136, 0.16],
+    [heavy?0.170:0.152, 0.26], [heavy?0.180:0.158, 0.34], [0.130, 0.40], [0.000, 0.41],
+  ], 18);
+  const body = part(prof, cloth(acc), 0, 0, 0);
+  body.scale.set(s * (heavy ? 1.15 : 1.0), s, s * 0.92);
+  torso.add(body);
+
+  if(heavy){
+    const pl = part(dome(0.16*s, 16), metal(PAL.steelDark, 0.4), 0, 0.22*s, 0);
+    pl.scale.set(1.15, 0.9, 1.0);
+    torso.add(pl);
+  }
+  const belt = part(ring(0.145*s, 0.026*s, 16), hide(PAL.leather), 0, 0.09*s, 0);
+  belt.rotation.x = Math.PI/2; belt.scale.set(1.1, 0.95, 1);
+  torso.add(belt);
 
   const arm = side => {
-    const j = joint(0.24*s*side, 0.30*s, 0);
-    j.add(part(box(0.11*s, 0.26*s, 0.11*s), mat(PAL.skin), 0, -0.14*s, 0));
+    const j = joint(0.19*s*side, 0.33*s, 0);
+    j.add(part(capsule(0.055*s, 0.15*s, 12), skin(PAL.skin), 0, -0.12*s, 0));
+    j.add(part(ball(0.062*s, 12), skin(PAL.skinDark), 0, -0.26*s, 0));
     return j;
   };
   const armL = arm(-1), armR = arm(1);
@@ -267,59 +380,94 @@ function buildWalker(card, cardId){
 
   const head = joint(0, 0.52*s, 0);
   torso.add(head);
-  head.add(part(box(0.24*s, 0.25*s, 0.23*s), mat(PAL.skin), 0, 0, 0));
-  head.add(part(box(0.26*s, 0.11*s, 0.25*s), mat(PAL.hair), 0, 0.13*s, -0.01*s));
+  const sk = part(ball(0.125*s, 18), skin(PAL.skin), 0, 0, 0);
+  sk.scale.set(1, 1.08, 0.97);
+  head.add(sk);
+  const hr = part(dome(0.132*s, 18), cloth(PAL.hair), 0, 0.015*s, 0);
+  hr.scale.set(1.02, 1.05, 1.02);
+  head.add(hr);
+  if(heavy){
+    const helm = part(dome(0.142*s, 18), metal(PAL.steel, 0.35), 0, 0.005*s, 0);
+    helm.scale.set(1.02, 1.0, 1.02);
+    head.add(helm);
+    head.add(part(spike(0.026*s, 0.10*s, 10), metal(PAL.steelLite, 0.3), 0, 0.16*s, 0));
+  }
 
   /* Handstück verrät die Rolle */
-  const prop = joint(0, -0.28*s, 0.04*s);
+  const prop = joint(0, -0.27*s, 0.03*s);
   armR.add(prop);
-  if(card.kind === "troop" && card.targets === "buildings"){
-    prop.add(part(tube(0.09*s, 0.11*s, 0.34*s, 6), metal(PAL.steelDark), 0, 0.10*s, 0));
+  if(card.targets === "buildings"){
+    prop.add(part(tube(0.02*s, 0.02*s, 0.5*s, 10), hide(PAL.wood), 0, 0.16*s, 0));
+    const ramHead = part(capsule(0.085*s, 0.10*s, 14), metal(PAL.steelDark, 0.4), 0, 0.42*s, 0);
+    ramHead.rotation.x = Math.PI/2;
+    prop.add(ramHead);
   } else if(card.splash){
-    prop.add(part(tube(0.022*s, 0.022*s, 0.62*s, 5), mat(PAL.wood), 0, 0.18*s, 0));
-    prop.add(part(ball(0.075*s, 8), mat(acc, { emissive:acc, emissiveIntensity:0.55 }), 0, 0.50*s, 0));
+    prop.add(part(tube(0.018*s, 0.020*s, 0.62*s, 10), hide(PAL.wood), 0, 0.18*s, 0));
+    prop.add(part(ball(0.072*s, 16),
+                  mat(acc, { emissive:acc, emissiveIntensity:0.9, roughness:0.3 }), 0, 0.50*s, 0));
   } else if(ranged){
-    const bow = part(geo("bow", () => new THREE.TorusGeometry(0.19, 0.018, 5, 10, Math.PI*1.25)),
-                     mat(PAL.wood), 0, 0.10*s, 0);
+    const bow = part(geo("bow2", () => new THREE.TorusGeometry(0.185, 0.016, 8, 24, Math.PI*1.3)),
+                     hide(PAL.wood), 0, 0.09*s, 0);
     bow.scale.setScalar(s); bow.rotation.y = Math.PI/2;
     prop.add(bow);
   } else {
-    prop.add(part(box(0.05*s, 0.44*s, 0.10*s), metal(PAL.steelLite), 0, 0.18*s, 0));
-    prop.add(part(box(0.14*s, 0.05*s, 0.05*s), metal(PAL.steelDark), 0, -0.02*s, 0));
+    prop.add(part(box(0.042*s, 0.42*s, 0.09*s), metal(PAL.steelLite, 0.26), 0, 0.18*s, 0));
+    prop.add(part(box(0.13*s, 0.042*s, 0.05*s), metal(PAL.steelDark, 0.4), 0, -0.02*s, 0));
+    prop.add(part(ball(0.030*s, 12), metal(PAL.copper, 0.3), 0, -0.06*s, 0));
   }
 
-  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop, height:1.15*s };
+  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop, height:1.16*s };
   return root;
 }
 
-/** Flieger: schwebt, hat keine Beine, dafür schlagende Flügel. */
+/** Flieger: schwebt, keine Beine, schlagende Schwingen. */
 function buildFlyer(card, cardId){
   const root = new THREE.Group();
   const acc = accentOf(cardId);
-  const s = Math.max(0.7, card.radius / 0.45);
+  const s = Math.max(0.72, card.radius / 0.45);
 
-  const hips = joint(0, 0.95, 0);                       // Flughöhe
+  const hips = joint(0, 0.95, 0);
   root.add(hips);
   const torso = joint(0, 0, 0);
   hips.add(torso);
 
   if(cardId === "glockenballon"){
-    torso.add(part(ball(0.34*s, 10), mat(acc), 0, 0.22*s, 0));
-    torso.add(part(tube(0.16*s, 0.20*s, 0.24*s, 8), mat(PAL.leather), 0, -0.18*s, 0));
-    for(let i=0;i<4;i++){
-      const a = i*Math.PI/2;
-      torso.add(part(box(0.015*s,0.28*s,0.015*s), mat(PAL.leatherDk),
-                     Math.sin(a)*0.15*s, 0.0, Math.cos(a)*0.15*s));
+    const hull = part(lathe("balloon", [
+      [0.00, 0.00], [0.20, 0.06], [0.32, 0.22], [0.34, 0.40],
+      [0.26, 0.56], [0.12, 0.64], [0.00, 0.66],
+    ], 20), cloth(acc), 0, -0.10*s, 0);
+    hull.scale.setScalar(s);
+    torso.add(hull);
+    const basket = part(lathe("basket", [
+      [0.00, 0.00], [0.15, 0.005], [0.17, 0.10], [0.155, 0.18], [0.00, 0.19],
+    ], 16), hide(PAL.leather), 0, -0.36*s, 0);
+    basket.scale.setScalar(s);
+    torso.add(basket);
+    for(let i = 0; i < 6; i++){
+      const a = i * Math.PI / 3;
+      const rope = part(tube(0.007*s, 0.007*s, 0.26*s, 6), hide(PAL.leatherDk),
+                        Math.sin(a)*0.15*s, -0.24*s, Math.cos(a)*0.15*s);
+      torso.add(rope);
     }
   } else {
-    torso.add(part(ball(0.22*s, 8), mat(acc), 0, 0, 0));
-    torso.add(part(box(0.14*s, 0.13*s, 0.20*s), mat(acc), 0, 0.06*s, 0.18*s));
-    torso.add(part(cone(0.05*s, 0.14*s, 5), mat(PAL.bone), 0, 0.04*s, 0.30*s));
+    const bodyM = part(capsule(0.16*s, 0.16*s, 16), cloth(acc), 0, 0, 0);
+    bodyM.rotation.x = Math.PI/2;
+    torso.add(bodyM);
+    const hd = part(ball(0.115*s, 16), cloth(acc), 0, 0.055*s, 0.19*s);
+    torso.add(hd);
+    torso.add(part(spike(0.045*s, 0.13*s, 10), mat(PAL.bone, { roughness:0.5 }), 0, 0.035*s, 0.30*s));
+    const tail = part(spike(0.075*s, 0.24*s, 10), cloth(acc), 0, 0.0, -0.24*s);
+    tail.rotation.x = -Math.PI/2;
+    torso.add(tail);
   }
 
   const wing = side => {
-    const j = joint(0.16*s*side, 0.08*s, 0);
-    const w = part(box(0.42*s, 0.03*s, 0.24*s), mat(acc, { roughness:0.9 }), 0.21*s*side, 0, 0);
+    const j = joint(0.13*s*side, 0.06*s, 0);
+    const w = part(lathe(`wing${side}`, [
+      [0.00, 0.00], [0.06, 0.10], [0.05, 0.30], [0.02, 0.44], [0.00, 0.50],
+    ], 8), cloth(acc), 0, 0, 0);
+    w.rotation.z = -Math.PI/2 * side;
+    w.scale.set(s, s * 1.5, s * 2.4);
     j.add(w);
     return j;
   };
@@ -331,66 +479,97 @@ function buildFlyer(card, cardId){
   return root;
 }
 
-/** Gebäude: steht still, hat kein Gerüst. */
+/** Gebäude: steht still. */
 function buildStructure(card, cardId){
   const root = new THREE.Group();
   const acc = accentOf(cardId);
-  root.add(part(box(0.9, 0.28, 0.9), mat(PAL.steelDark), 0, 0.14, 0));
+  root.add(part(lathe("plinth", [
+    [0.00, 0.00], [0.52, 0.02], [0.50, 0.14], [0.44, 0.20], [0.00, 0.21],
+  ], 16), mat(0x6A6558, { roughness:0.95 }), 0, 0, 0));
+
   if(card.damage > 0){
-    root.add(part(tube(0.30, 0.40, 0.85, 8), mat(acc), 0, 0.70, 0));
-    root.add(part(cone(0.42, 0.34, 8), mat(PAL.leatherDk), 0, 1.28, 0));
-    for(let i=0;i<4;i++){
-      const a = i*Math.PI/2 + Math.PI/4;
-      root.add(part(box(0.10,0.16,0.10), mat(PAL.steel),
-                    Math.sin(a)*0.30, 1.10, Math.cos(a)*0.30));
+    const shaft = part(lathe("watchtower", [
+      [0.00, 0.00], [0.36, 0.02], [0.32, 0.30], [0.29, 0.62],
+      [0.36, 0.70], [0.34, 0.82], [0.00, 0.84],
+    ], 18), mat(acc, { roughness:0.9 }), 0, 0.18, 0);
+    root.add(shaft);
+    const roof = part(spike(0.46, 0.38, 14), hide(PAL.leatherDk), 0, 1.20, 0);
+    root.add(roof);
+    for(let i = 0; i < 6; i++){
+      const a = i * Math.PI / 3;
+      root.add(part(capsule(0.028, 0.10, 8), metal(PAL.steel, 0.35),
+                    Math.sin(a)*0.30, 0.98, Math.cos(a)*0.30));
     }
   } else {
-    root.add(part(box(0.86, 0.80, 0.86), mat(acc), 0, 0.68, 0));
-    for(let i=0;i<4;i++)
-      root.add(part(box(0.20,0.18,0.20), mat(PAL.steel), (i%2?1:-1)*0.31, 1.16, (i<2?1:-1)*0.31));
+    const wall = part(lathe("bulwark", [
+      [0.00, 0.00], [0.46, 0.02], [0.44, 0.55], [0.48, 0.62], [0.46, 0.72], [0.00, 0.73],
+    ], 14), mat(acc, { roughness:0.95 }), 0, 0.18, 0);
+    root.add(wall);
+    for(let i = 0; i < 8; i++){
+      const a = i * Math.PI / 4;
+      root.add(part(box(0.16, 0.16, 0.16), mat(0x9A917E, { roughness:0.95 }),
+                    Math.sin(a)*0.42, 0.96, Math.cos(a)*0.42));
+    }
   }
-  root.userData.rig = { static:true, height:1.5 };
+  root.userData.rig = { static:true, height:1.55 };
   return root;
 }
 
 /* ============================================================
-   TÜRME
+   TÜRME — rund statt kubisch, mit Zinnenkranz
    ============================================================ */
 function buildTower(kind, team){
   const root = new THREE.Group();
   const teamCol = team === "blue" ? PAL.teamBlue : PAL.teamRed;
   const king = kind === "king";
-  const w = king ? 2.3 : 1.9;
-  const h = king ? 2.5 : 1.9;
+  const R = king ? 1.15 : 0.95;
+  const H = king ? 2.6 : 2.0;
+  const stone  = mat(0x8B8375, { roughness:0.96 });
+  const stone2 = mat(0x9C947F, { roughness:0.94 });
 
-  root.add(part(box(w*1.12, 0.30, w*1.12), mat(0x5D5A52), 0, 0.15, 0));
-  root.add(part(box(w, h, w), mat(0x7C776C), 0, h/2 + 0.2, 0));
-  root.add(part(box(w*1.06, 0.24, w*1.06), mat(0x8E887A), 0, h + 0.30, 0));
+  root.add(part(lathe(`base${king?1:0}`, [
+    [0.00, 0.00], [R*1.30, 0.03], [R*1.26, 0.22], [R*1.10, 0.34], [0.00, 0.35],
+  ], 22), mat(0x6E695C, { roughness:0.97 }), 0, 0, 0));
 
-  // Zinnenkranz
-  const n = king ? 5 : 4;
+  root.add(part(lathe(`shaft${king?1:0}`, [
+    [0.00, 0.00], [R, 0.02], [R*0.94, H*0.45], [R*0.90, H*0.82],
+    [R*1.12, H*0.90], [R*1.10, H], [0.00, H],
+  ], 24), stone, 0, 0.30, 0));
+
+  // Zinnen
+  const n = king ? 12 : 10;
   for(let i = 0; i < n; i++){
-    for(const [sx, sz] of [[1,0],[-1,0],[0,1],[0,-1]]){
-      const t = (i/(n-1) - 0.5) * w * 0.9;
-      root.add(part(box(w/n*0.6, 0.26, w/n*0.6), mat(0x8E887A),
-                    sx ? sx*w*0.44 : t, h + 0.54, sz ? sz*w*0.44 : t));
-    }
+    const a = (i / n) * Math.PI * 2;
+    const m = part(box(R*0.34, 0.34, R*0.26), stone2,
+                   Math.sin(a) * R * 1.02, H + 0.46, Math.cos(a) * R * 1.02);
+    m.rotation.y = a;
+    root.add(m);
   }
   // Wehrgang in Teamfarbe
-  root.add(part(box(w*1.02, 0.10, w*1.02), mat(teamCol), 0, h + 0.20, 0));
+  const band = part(ring(R*1.09, 0.055, 26), mat(teamCol, { roughness:0.6 }), 0, H + 0.28, 0);
+  band.rotation.x = Math.PI/2;
+  root.add(band);
+
+  // Schießscharten
+  for(let i = 0; i < 4; i++){
+    const a = i * Math.PI/2 + Math.PI/4;
+    root.add(part(box(0.12, 0.32, 0.10), mat(0x3A362E, { roughness:1 }),
+                  Math.sin(a)*R*0.93, H*0.62, Math.cos(a)*R*0.93));
+  }
 
   if(king){
-    root.add(part(tube(0.05, 0.05, 1.5, 5), mat(PAL.wood), 0, h + 1.2, 0));
-    const flag = part(box(0.7, 0.42, 0.03), mat(teamCol), 0.36, h + 1.7, 0);
+    root.add(part(tube(0.045, 0.045, 1.5, 10), hide(PAL.wood), 0, H + 1.35, 0));
+    const flag = part(box(0.66, 0.40, 0.02), mat(teamCol, { roughness:0.75 }), 0.34, H + 1.85, 0);
     root.add(flag);
-    for(let i = 0; i < 5; i++){
-      const a = i / 5 * Math.PI * 2;
-      root.add(part(cone(0.10, 0.30, 4), metal(0xE0B84C),
-                    Math.sin(a) * 0.42, h + 0.75, Math.cos(a) * 0.42));
+    for(let i = 0; i < 6; i++){
+      const a = i / 6 * Math.PI * 2;
+      root.add(part(spike(0.085, 0.30, 10), metal(0xD9AF4A, 0.28),
+                    Math.sin(a) * R * 0.52, H + 0.80, Math.cos(a) * R * 0.52));
     }
     root.userData.flag = flag;
   }
-  root.userData.height = h + (king ? 2.2 : 0.7);
+  root.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  root.userData.height = H + (king ? 2.3 : 0.9);
   return root;
 }
 
