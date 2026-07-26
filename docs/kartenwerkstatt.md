@@ -1,12 +1,20 @@
-# Kartenwerkstatt — Roster-Entwurf v1
+# Kartenwerkstatt
 
-> **Status: ENTWURF, noch nicht abgesegnet.**
+> **Status: Abschnitt 3 ist ein REFERENZ-Vorschlag, kein Beschluss.**
+> Der finale Roster wird in **Abschnitt 7** gemeinsam entworfen — eigene Karten.
 > Diese Datei ist die einzige Quelle der Wahrheit für alle Karten-Stats.
-> Aus ihr entsteht später `src/data/cards.js` 1:1. Änderungen bitte hier machen —
-> dann zieht die Engine automatisch nach.
+> Aus ihr entsteht später `src/data/cards.js` 1:1.
 >
 > Alle Namen und Symbole sind Eigenentwicklung. Kein Bezug zu bestehenden Produkten,
 > nur die Spielmechanik dient als Vorbild.
+
+## Beschlüsse bisher
+
+| Datum | Beschluss |
+|---|---|
+| — | ✅ Extra-Mechaniken **bestätigt**: ❄️ Einfrieren (Statuseffekt), ☄️ Rückstoß, 🎈 Todesexplosion |
+| — | ❌ 🕳️ Rattenhöhle (Gebäude spawnt Einheiten) **verworfen** — Mechanik kommt nicht in die Engine |
+| — | 🔨 Roster wird **selbst entworfen**, Abschnitt 3 dient nur als Maßstab für Stat-Größenordnungen |
 
 ---
 
@@ -114,14 +122,10 @@ Der Königsturm **schläft** zu Beginn. Er erwacht, wenn ein eigener Wachturm f�
 | 17 | 🏯 **Speerturm** | 4 | 1050 | 110 | 0.9 s | 122 | 6.5 | 35 s | Boden + Luft | Defensivgebäude. Zieht Rammbock & Ballon von den Türmen weg. |
 | 18 | 🧱 **Bollwerk** | 3 | 2200 | — | — | — | — | 30 s | — | Greift nicht an, hat nur HP. Reine Ablenkung, extrem billig pro HP. |
 
-### 3.7 Optional — braucht eine Extra-Mechanik
+### 3.7 Verworfen
 
-| # | Karte | Kosten | HP | Lebensdauer | Effekt |
-|---|---|---|---|---|---|
-| 19 | 🕳️ **Rattenhöhle** | 5 | 900 | 40 s | Spawnt **alle 5 s** 2 × 🐀 Rattenrudel-Einheiten |
-
-Diese Karte braucht als einzige eine „Gebäude erzeugt Einheiten"-Mechanik in der Engine.
-Kleiner Zusatzaufwand in M5 — deshalb hier separat zum Ja/Nein-Entscheiden.
+~~🕳️ **Rattenhöhle** (5💧, Gebäude spawnt alle 5 s zwei Einheiten)~~ — abgelehnt.
+Die Mechanik „Gebäude erzeugt Einheiten" wird **nicht** in die Engine gebaut.
 
 ---
 
@@ -133,7 +137,7 @@ Kleiner Zusatzaufwand in M5 — deshalb hier separat zum Ja/Nein-Entscheiden.
 | 2 | 4 | 🔪 🪃 🦇 ❄️ |
 | 3 | 4 | 🗡️ 🏹 🌧️ 🧱 |
 | 4 | 6 | 🐗 🔥 🔭 🦅 ☄️ 🏯 |
-| 5 | 3 (+1) | 🗿 🎈 ⚡ (+🕳️) |
+| 5 | 3 | 🗿 🎈 ⚡ |
 
 Damit lässt sich sowohl ein billiges Zykel-Deck (Ø 2.8) als auch ein schweres
 Tank-Deck (Ø 4.2) bauen — ein 8er-Deck mit Ø 3.2–3.8 ist der gesunde Mittelwert.
@@ -169,11 +173,61 @@ nicht kontern, nur durch Positionierung entwerten. Deshalb sind ihre Schadenswer
 | Luft-/Boden-Ebenen und `targets`-Filter | 🦅 🦇 🎈 vs. 🗿 🗡️ 🔪 🐀 |
 | „nur Gebäude"-Targeting | 🐗 🎈 |
 | Gebäude mit Lebensdauer | 🏯 🧱 (🕳️) |
-| Statuseffekt „eingefroren" | ❄️ |
-| Rückstoß | ☄️ |
-| Todesexplosion beim Sterben | 🎈 |
-| Gebäude spawnt Einheiten | 🕳️ (optional) |
+| Statuseffekt „eingefroren" | ❄️ — ✅ bestätigt |
+| Rückstoß | ☄️ — ✅ bestätigt |
+| Todesexplosion beim Sterben | 🎈 — ✅ bestätigt |
+| ~~Gebäude spawnt Einheiten~~ | ❌ verworfen |
 
-Alles davon war im abgesegneten Umfang („voller Baukasten") enthalten —
-bis auf **Frostwelle** (Statuseffekt), **Feuerball-Rückstoß** und **Todesexplosion**.
-Das sind drei kleine Erweiterungen, die ich in M5 mit einbauen würde.
+Die drei Statuseffekt-/Impuls-Mechaniken sind bestätigt und kommen in M5 dazu.
+Das Statuseffekt-System aus ❄️ ist gleichzeitig die Grundlage für alles Spätere
+(Verlangsamen, Wut, Gift, Schild) — es lohnt sich also doppelt.
+
+---
+
+## 7. Der finale Roster — eigene Karten
+
+*(wird gemeinsam gefüllt, Karte für Karte)*
+
+### 7.1 Vorlage — so beschreibst du eine Karte
+
+Du musst **keine Zahlen** liefern. Diese vier Angaben reichen mir:
+
+```
+Name:     z.B. "Dornenritter"
+Symbol:   z.B. 🌵   (ein Emoji)
+Was ist es?  1–2 Sätze: Wie sieht es aus, was macht es?
+Rolle:    Was soll es im Kampf leisten? (Tank / Schadensausteiler /
+          Schwarm / Konter gegen X / Siegbedingung / Ablenkung / Zauber)
+```
+
+Optional, wenn du eine Meinung hast: Kosten, Boden oder Luft, Nahkampf
+oder Fernkampf, ob es Luftziele treffen kann.
+
+**Ich liefere dann zurück:** vollständige Stats nach der Wert-Faustregel
+aus Abschnitt 1, eine Einordnung ins Konter-Netz („wer schlägt das, was
+schlägt es") und einen Hinweis, falls die Karte eine Engine-Mechanik
+braucht, die es noch nicht gibt.
+
+### 7.2 Zielverteilung
+
+Damit am Ende Decks *funktionieren*, sollte der Roster ungefähr abdecken:
+
+| Rolle | Empfohlene Anzahl | Warum |
+|---|---|---|
+| Tank / Frontlinie | 2–3 | Ohne Tank hat kein Angriff Bestand |
+| Einzelziel-Schaden | 3–4 | Der Konter gegen Tanks |
+| Flächenschaden | 2–3 | Der Konter gegen Schwärme |
+| Schwarm | 2–3 | Der Konter gegen Einzelziel-Schaden |
+| Kann Luftziele treffen | mind. 4 | Sonst sind fliegende Karten unschlagbar |
+| Lufteinheiten | 2–3 | Umgeht Fluss und Bodenblocker |
+| Siegbedingung (nur Gebäude) | 1–2 | Karten, die ein Deck um sich herum baut |
+| Zauber | 2–4 | Gegen Schwärme und zum Nachsetzen |
+| Defensivgebäude | 1–2 | Der Konter gegen Siegbedingungen |
+
+Die drei Schadensarten bilden absichtlich ein Schere-Stein-Papier:
+**Schwarm** schlägt **Einzelziel-Schaden** schlägt **Tank** schlägt **Schwarm**.
+Wenn eine der drei Rollen fehlt, kippt das ganze Spiel in eine Richtung.
+
+### 7.3 Karten
+
+*(noch leer)*
