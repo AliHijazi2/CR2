@@ -861,17 +861,106 @@ function resize(){
   }
   camera.aspect = r.width / r.height;
 
-  // Bildausschnitt an das Seitenverhältnis anpassen: Bei schmalen
-  // Fenstern weiter weg, damit die Arena immer ganz sichtbar bleibt.
-  // Reichweite so waehlen, dass sowohl Breite als auch Tiefe passen.
-  const vFov = camera.fov * Math.PI / 180;
-  const needH = (AH * Math.cos(CAM.tilt) + 1.5) / (2 * Math.tan(vFov/2));
-  const needW = (AW + 1.5) / (2 * Math.tan(vFov/2) * camera.aspect);
-  const dist  = Math.max(24, needH, needW);
-  camera.position.set(AW/2, dist * Math.sin(CAM.tilt), CAM.look + dist * Math.cos(CAM.tilt));
-  camera.lookAt(AW/2, 1.2, CAM.look);
+  camera.updateProjectionMatrix();
+  fitArena();
+}
+
+/* Die Arena muss bei jedem Seitenverhaeltnis ganz ins Bild passen und
+   dabei mittig sitzen. Eine geschlossene Formel dafuer ist unzuverlaessig:
+   die Kamera ist geneigt, also steht die vordere Arenakante naeher und
+   projiziert groesser als die hintere. Eine Naeherung ueber cos(tilt)
+   unterschaetzt sie und schneidet bei breiten Fenstern den eigenen
+   Koenigsturm ab.
+
+   Stattdessen werden die acht Eckpunkte des Arena-Quaders wirklich
+   projiziert. Zwei Groessen werden gesucht:
+
+     dist — der Abstand. Je weiter weg, desto kleiner das Bild, also ist
+            "passt es noch" monoton in dist. Intervallhalbierung findet
+            damit sicher den kleinsten passenden Abstand.
+     look — der Zielpunkt auf der Mittelachse. Nur den Abstand zu suchen
+            reicht nicht: durch die Neigung stoesst die vordere Kante
+            zuerst an, waehrend oben ein breiter leerer Streifen bleibt.
+            Der Zielpunkt wird deshalb per Newton-Schritt so verschoben,
+            dass ober- und unterhalb gleich viel Rand bleibt.
+
+   Beides haengt voneinander ab, also wechseln sich die Schritte ab.
+   Laeuft nur beim Aendern der Fenstergroesse — die Kosten sind egal.  */
+const FIT_MARGIN = 0.9;      // Rand in Kacheln
+const FIT_TOP    = 3.6;      // Hoehe der Tuerme, damit die Zinnen passen
+const _fitV = new THREE.Vector3();
+let _fitPts = null;
+let FIT_DIST = 30;
+
+/* Erst bei der ersten Benutzung bauen: AW und AH stehen im Skript von
+   index.html und sind beim Laden dieser Datei noch nicht definiert. */
+function fitPoints(){
+  if(!_fitPts){
+    _fitPts = [];
+    for(const x of [-FIT_MARGIN, AW + FIT_MARGIN])
+      for(const z of [-FIT_MARGIN, AH + FIT_MARGIN])
+        for(const y of [0, FIT_TOP])
+          _fitPts.push(new THREE.Vector3(x, y, z));
+  }
+  return _fitPts;
+}
+
+function placeCam(dist, look){
+  camera.position.set(AW/2, dist * Math.sin(CAM.tilt),
+                      look + dist * Math.cos(CAM.tilt));
+  camera.lookAt(AW/2, 1.2, look);
+  camera.updateMatrixWorld(true);
+}
+
+/** Bildraum-Huelle aller Eckpunkte. Alles innerhalb -1..1 heisst: passt. */
+function fitBounds(dist, look){
+  placeCam(dist, look);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for(const p of fitPoints()){
+    _fitV.copy(p).project(camera);
+    if(_fitV.x < x0) x0 = _fitV.x;
+    if(_fitV.x > x1) x1 = _fitV.x;
+    if(_fitV.y < y0) y0 = _fitV.y;
+    if(_fitV.y > y1) y1 = _fitV.y;
+  }
+  return { x0, x1, y0, y1, worst: Math.max(-x0, x1, -y0, y1) };
+}
+
+function fitArena(){
+  let look = AH / 2, dist = FIT_DIST;
+
+  for(let pass = 0; pass < 5; pass++){
+    // 1) kleinster Abstand, bei dem bei diesem Zielpunkt alles passt
+    let lo = 18, hi = 130;
+    if(fitBounds(hi, look).worst > 1){
+      dist = hi;                       // passt selbst ganz hinten nicht
+    } else {
+      for(let i = 0; i < 24; i++){
+        const mid = (lo + hi) / 2;
+        if(fitBounds(mid, look).worst > 1) lo = mid; else hi = mid;
+      }
+      dist = hi;
+    }
+
+    // 2) Zielpunkt nachziehen, bis die Arena senkrecht mittig sitzt
+    const b0 = fitBounds(dist, look);
+    const off = (b0.y0 + b0.y1) / 2;
+    if(Math.abs(off) < 0.004) break;
+    const step = 0.5;
+    const off1 = (() => { const b = fitBounds(dist, look + step);
+                          return (b.y0 + b.y1) / 2; })();
+    const slope = (off1 - off) / step;
+    if(Math.abs(slope) < 1e-6) break;
+    look = clampNum(look - off / slope, AH/2 - 10, AH/2 + 10);
+  }
+
+  FIT_DIST = dist;
+  CAM.look = look;
+  placeCam(dist, look);
   camera.updateProjectionMatrix();
 }
+
+function clampNum(v, a, b){ return v < a ? a : v > b ? b : v; }
 
 /** Bildschirmpunkt -> Spielkoordinate auf dem Boden. */
 function pickTile(clientX, clientY){

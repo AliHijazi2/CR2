@@ -128,40 +128,99 @@ canvas{
   color:#D9AEFF;min-width:2.1ch;text-align:right;font-variant-numeric:tabular-nums;
 }
 
-#hand{display:grid;grid-template-columns:.62fr repeat(4,1fr);gap:6px;}
+/* Die Handkarten sind echte Kartenbilder: Rahmen, Titel und Figur
+   stecken im Bild selbst. Die Karte ist damit nur noch ein Rahmen
+   mit fester Seitenlaenge, das Bild fuellt ihn per object-fit aus.
+   Karten ohne eigenes Bild bekommen denselben Goldrahmen in CSS
+   nachgebaut, damit die Reihe als ein Set liest. Die Goldtoene sind
+   direkt aus dem Rahmen der gezeichneten Karten abgegriffen.        */
+#hand{display:grid;grid-template-columns:.62fr repeat(4,1fr);gap:6px;align-items:end;}
 .card{
   position:relative;
-  background:var(--panel);
-  border:1px solid var(--line);
-  border-radius:9px;
-  padding:6px 3px 5px;
-  display:flex;flex-direction:column;align-items:center;gap:2px;
+  aspect-ratio:224/311;
+  max-height:min(150px,21dvh);
+  border:0;padding:0;
+  border-radius:8px;
+  overflow:hidden;
+  background:#12201E;
   cursor:pointer;
-  transition:transform .09s ease,border-color .09s ease,background .09s ease;
-  font:inherit;color:inherit;
+  transition:transform .1s ease;
+  font:inherit;color:inherit;display:block;
 }
-.card .ico{font-family:var(--font-emoji);font-size:24px;line-height:1.05;
-  height:30px;display:flex;align-items:center;justify-content:center;}
-.card .ico img{max-height:100%;max-width:100%;object-fit:contain;image-rendering:auto;}
-.card .nm{font-size:8.5px;letter-spacing:.03em;color:var(--muted);text-align:center;line-height:1.15;}
+.card .ico{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-emoji);font-size:30px;line-height:1;
+}
+.card .ico img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block;}
+
+/* Platzhalter: Goldrahmen ueber zwei Hintergruende (padding-box/border-box),
+   Titelschild oben wie bei den gezeichneten Karten. */
+.card:not(.has-art){
+  background:linear-gradient(#1E3033,#16262A) padding-box,
+             linear-gradient(160deg,#F0D48A,#C7A452 38%,#8A6228 72%,#5E4118) border-box;
+  border:2px solid transparent;
+}
+.card:not(.has-art):not(.next) .ico{
+  inset:21px 3px 3px;
+  border-radius:4px;
+  background:radial-gradient(62% 55% at 50% 42%,#2A4247,#16262A 78%);
+}
+.card:not(.has-art) .nm{
+  position:absolute;left:2px;right:2px;top:2px;height:17px;z-index:2;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 2px;
+  background:linear-gradient(#B98F3E,#7C5620);
+  border:1px solid #E0BF74;border-radius:3px;
+  font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  color:#FFF7E3;text-shadow:0 1px 1px rgba(0,0,0,.55);
+  overflow:hidden;white-space:nowrap;
+}
+.card.has-art .nm{display:none;}
+
+/* Unten links, nicht oben: der Kartenname steht bei diesen Bildern
+   im Titelband ganz oben, dort wuerde die Kugel ihn verdecken. */
 .card .cost{
-  position:absolute;top:-5px;left:-4px;
-  min-width:17px;height:17px;padding:0 3px;
-  background:var(--elixir);border:1.5px solid var(--ground);border-radius:50%;
-  font-family:var(--font-num);font-size:10px;font-weight:700;
+  position:absolute;bottom:4px;left:4px;z-index:3;
+  min-width:19px;height:19px;padding:0 4px;
+  background:radial-gradient(circle at 35% 30%,#D89BFF,var(--elixir));
+  border:1.5px solid rgba(8,16,15,.85);
+  box-shadow:0 1px 3px rgba(0,0,0,.6);
+  border-radius:50%;
+  font-family:var(--font-num);font-size:11px;font-weight:700;color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,.5);
   display:flex;align-items:center;justify-content:center;
 }
-.card:hover:not(:disabled){border-color:#3C5F59;}
-.card.sel{border-color:var(--blue);background:var(--panel-hi);transform:translateY(-4px);}
+
+.card:hover:not(:disabled){transform:translateY(-2px);}
+.card.sel{transform:translateY(-6px);}
 .card.sel::after{
-  content:"";position:absolute;inset:-1px;border-radius:9px;
-  box-shadow:0 0 0 1px var(--blue),0 0 14px -2px var(--blue);pointer-events:none;
+  content:"";position:absolute;inset:0;border-radius:8px;z-index:4;
+  box-shadow:inset 0 0 0 2px var(--blue),0 0 16px -2px var(--blue);
+  pointer-events:none;
 }
-.card:disabled{opacity:.34;cursor:default;}
+/* Zu wenig Elixier: abdunkeln statt ausblenden, die Karte bleibt lesbar. */
+.card:disabled{cursor:default;}
+.card:disabled::before{
+  content:"";position:absolute;inset:0;z-index:2;border-radius:8px;
+  background:rgba(8,14,20,.62);
+}
+.card:disabled .ico img{filter:grayscale(.5) brightness(.85);}
 .card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
-.card.next{opacity:.5;cursor:default;background:transparent;border-style:dashed;}
-.card.next .ico{font-size:17px;}
-.card.next .lbl{font-size:7.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+
+.card.next{cursor:default;opacity:.62;}
+.card.next .ico{font-size:20px;}
+.card.next .lbl{
+  position:absolute;left:0;right:0;bottom:0;z-index:2;
+  padding:4px 0 3px;
+  background:linear-gradient(rgba(8,15,14,0),rgba(8,15,14,.93) 55%);
+  font-size:7px;letter-spacing:.14em;text-transform:uppercase;
+  color:#C6D4D0;text-align:center;
+  text-shadow:0 1px 2px rgba(0,0,0,.9);
+}
+@media (prefers-reduced-motion:reduce){
+  .card{transition:none;}
+}
 
 /* ---------- Overlays ---------- */
 .veil{
@@ -295,7 +354,7 @@ const CARDS = {
      Eingeordnet zwischen Klingenwache (3💧) und Steinwächter (5💧):
      mehr Schaden als der Steinwächter, weit weniger Lebenspunkte.
      Trifft keine Luftziele — die Axt reicht nicht nach oben.        */
-  abdu:{ name:"Abdu", emoji:"🪓", art:"assets/abdu.png", artScale:2.0,
+  abdu:{ name:"Abdu", emoji:"🪓", card:"assets/cards/abdu.jpg",
     cost:4, kind:"troop", count:1,
     hp:2000, damage:230, hitSpeed:1.3, range:1.2, speed:1.0,
     layer:"ground", targets:"ground", radius:0.48 },
@@ -309,7 +368,7 @@ const CARDS = {
      um — gegen "Schwer" gewann man dann am leichtesten.
      Wappen und Fluggesellschafts-Logo der Vorlage sind bewusst
      nicht nachgebaut.                                            */
-  yunus:{ name:"Yunus Peace", emoji:"🏹", art:"assets/yunus.png", artScale:2.1,
+  yunus:{ name:"Yunus Peace", emoji:"🏹", card:"assets/cards/yunus.jpg",
     cost:4, kind:"troop", count:1,
     hp:520, damage:200, hitSpeed:1.15, range:5.8, speed:1.2,
     layer:"ground", targets:"both", radius:0.42 },
@@ -319,7 +378,7 @@ const CARDS = {
      Explosion, dafür langsame Schlagfolge und kurze Reichweite —
      er trifft selten, dann aber alles auf einmal.
      Die Spiellogo-Einblendungen der Vorlage sind nicht nachgebaut. */
-  mertabi:{ name:"Mertabi", emoji:"🔮", art:"assets/mertabi.png", artScale:2.05,
+  mertabi:{ name:"Mertabi", emoji:"🔮", card:"assets/cards/mertabi.jpg",
     cost:4, kind:"troop", count:1,
     hp:640, damage:300, hitSpeed:1.9, range:5.2, speed:0.9,
     layer:"ground", targets:"both", splash:1.6, radius:0.45 },
@@ -329,7 +388,7 @@ const CARDS = {
      dafür der langsamste im Spiel und mit der trägsten Schlagfolge.
      Er schlägt mit den Fäusten — keine Reichweite nach oben, also
      kein Treffer gegen Luftziele.                                  */
-  timgioh:{ name:"Timgioh", emoji:"🪵", art:"assets/timgioh.png", artScale:2.4,
+  timgioh:{ name:"Timgioh", emoji:"🪵", card:"assets/cards/timgioh.jpg",
     cost:5, kind:"troop", count:1,
     hp:3800, damage:240, hitSpeed:1.8, range:1.3, speed:0.65,
     layer:"ground", targets:"ground", radius:0.62 },
@@ -532,7 +591,6 @@ function spawnTroop(team, id, card, x, y){
     }
     W.units.push({
       id:++uid, team, cardId:id, name:card.name, emoji:card.emoji,
-      art:card.art || null, artScale:card.artScale || 0,
       x:clamp(x+ox, 0.5, AW-0.5), y:clamp(y+oy, 0.5, AH-0.5),
       hp:card.hp, maxHp:card.hp,
       damage:card.damage, hitSpeed:card.hitSpeed, range:card.range,
@@ -1010,6 +1068,30 @@ function buildHand(){
   }
 }
 
+/* Zeichnet eine Karte in ihren Platz. Karten mit eigenem Bild bekommen
+   die Klasse "has-art" — dann liefert das Bild Rahmen und Titel selbst
+   und das Titelschild aus CSS wird ausgeblendet. Laedt das Bild nicht,
+   faellt die Karte auf Emoji plus CSS-Rahmen zurueck. */
+function paintCard(btn, c){
+  const ico = btn.querySelector(".ico");
+  const nm = btn.querySelector(".nm");
+  if(nm) nm.textContent = c.name;
+  btn.title = c.name;
+  ico.innerHTML = "";
+  if(c.card){
+    const im = new Image();
+    im.alt = c.name;
+    im.draggable = false;
+    im.onerror = () => { btn.classList.remove("has-art"); ico.textContent = c.emoji; };
+    im.src = c.card;
+    ico.appendChild(im);
+    btn.classList.add("has-art");
+  } else {
+    btn.classList.remove("has-art");
+    ico.textContent = c.emoji;
+  }
+}
+
 function selectCard(i){
   W.selected = W.selected === i ? -1 : i;
   W.aim = null;
@@ -1035,24 +1117,18 @@ function syncHud(){
     if(!c) continue;
     if(b.dataset.id !== id){
       b.dataset.id = id;
-      const ico = b.querySelector(".ico");
-      if(c.art){
-        ico.innerHTML = "";
-        const im = new Image();
-        im.src = c.art; im.alt = c.name;
-        im.onerror = () => { ico.textContent = c.emoji; };
-        ico.appendChild(im);
-      } else {
-        ico.textContent = c.emoji;
-      }
-      b.querySelector(".nm").textContent = c.name;
+      paintCard(b, c);
       b.querySelector(".cost").textContent = c.cost;
+      b.setAttribute("aria-label", `${c.name}, ${c.cost} Elixier`);
     }
     b.disabled = e < c.cost || W.over;
     b.classList.toggle("sel", W.selected === i);
   }
-  const nx = CARDS[W.blue.queue[0]];
-  if(nx) nextBtn.querySelector(".ico").textContent = nx.emoji;
+  const nxId = W.blue.queue[0], nx = CARDS[nxId];
+  if(nx && nextBtn.dataset.id !== nxId){
+    nextBtn.dataset.id = nxId;
+    paintCard(nextBtn, nx);
+  }
 
   const t = Math.max(0, Math.ceil(W.time));
   timeEl.textContent = Math.floor(t/60) + ":" + String(t%60).padStart(2,"0");
