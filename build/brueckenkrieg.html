@@ -33,6 +33,10 @@ body{
   color:var(--text);
   font-family:var(--font-ui);
   overflow:hidden;
+  /* Vom Homebildschirm gestartet gibt es keine Adressleiste, die das
+     Wegziehen abfaengt: ohne das hier laesst sich das ganze Spielfeld
+     mit dem Finger verschieben. */
+  overscroll-behavior:none;
   -webkit-user-select:none;
   user-select:none;
   -webkit-tap-highlight-color:transparent;
@@ -44,7 +48,12 @@ body{
   flex-direction:column;
   align-items:center;
   gap:8px;
-  padding:8px;
+  /* Im Vollbild liegt der Inhalt sonst unter Notch und Home-Balken.
+     env(safe-area-inset-*) ist ausserhalb davon schlicht 0. */
+  padding:calc(8px + env(safe-area-inset-top))
+          calc(8px + env(safe-area-inset-right))
+          calc(8px + env(safe-area-inset-bottom))
+          calc(8px + env(safe-area-inset-left));
 }
 
 /* ---------- Statusleiste ---------- */
@@ -166,9 +175,11 @@ canvas{
   padding:0 2px;
   background:linear-gradient(#B98F3E,#7C5620);
   border:1px solid #E0BF74;border-radius:3px;
-  /* Knapp gehalten: "Straßenbande" stoesst bei schmalen Fenstern sonst
-     an beide Raender des Titelschilds. */
-  font-size:7px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
+  /* Mitwachsend: "Straßenbande" ist der laengste Name und passt bei
+     festen 7px auf einem 390 Punkte breiten Telefon nicht mehr aufs
+     Schild. Nach oben gedeckelt, sonst wird es auf dem Rechner gross. */
+  font-size:clamp(5.4px,1.45vw,7px);
+  font-weight:800;letter-spacing:.02em;text-transform:uppercase;
   color:#FFF7E3;text-shadow:0 1px 1px rgba(0,0,0,.55);
   overflow:hidden;white-space:nowrap;
 }

@@ -1,0 +1,62 @@
+name: Seite veroeffentlichen
+
+# Baut site/ und stellt es auf GitHub Pages.
+#
+# Einmalig noetig: Settings -> Pages -> "Build and deployment" ->
+# Source auf "GitHub Actions" stellen. Ohne das schlaegt deploy-pages fehl.
+#
+# Der Feature-Branch steht mit in der Liste, damit die Seite schon vor
+# dem Zusammenfuehren erreichbar ist. Nach dem Merge kann die Zeile weg.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/clash-royale-clone-game-eilj9a
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Zwei Veroeffentlichungen gleichzeitig vertraegt Pages nicht.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Pillow installieren
+        run: python3 -m pip install --quiet Pillow
+
+      - name: Symbole erzeugen
+        run: python3 tools/icons.py
+
+      - name: Seite bauen
+        run: python3 tools/build-web.py --site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  veroeffentlichen:
+    needs: bauen
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

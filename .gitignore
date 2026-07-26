@@ -1,0 +1,5 @@
+# site/ ist reines Bauergebnis: index.html ist rund 1 MB und wuerde bei
+# jeder Aenderung neu im Verlauf landen. Die Seite wird von
+# .github/workflows/pages.yml gebaut und direkt veroeffentlicht.
+# Lokal ansehen:  python3 tools/icons.py && python3 tools/build-web.py --site
+site/
