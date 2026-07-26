@@ -86,6 +86,11 @@ const box = (w, h, d, r) =>
   geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
 const ring = (r, t, s) =>
   geo(`t${r},${t},${s||16}`, () => new THREE.TorusGeometry(r, t, 8, s || 16));
+/** Kugelschale mit Ausschnitt: für eine Kapuze, die vorn offen ist.
+    phi = π/2 zeigt nach +Z (vorn), dort bleibt die Lücke. */
+const shell = (r, gap, s) =>
+  geo(`h${r},${gap},${s||26}`, () => new THREE.SphereGeometry(
+    r, s || 26, 14, Math.PI/2 + gap, Math.PI*2 - 2*gap));
 
 /** Drehprofil: aus einer Silhouette einen runden Körper machen.
     Damit werden Rumpf, Stiefel und Türme rund statt eckig. */
@@ -577,6 +582,182 @@ function buildYunus(){
 }
 
 /* ============================================================
+   MERTABI — Zauberer mit Kristallstab
+
+   Zu den Vorlagen: Auf dem Referenzblatt sind zweimal Logos eines
+   bestehenden Spiels eingeblendet. Die sind NICHT nachgebaut.
+   Übernommen sind Kapuzenrobe, Goldbesatz, Gürtel mit Kronen-
+   schnalle, Stiefel, Brille, Bart und der lila Kristallstab.
+   ============================================================ */
+const ROBE = { cloth:0x6E1F2A, dark:0x4E141C, gold:0xC79A38,
+               belt:0x5B3A24, boot:0x4E3620, staff:0x7A1F2A, crystal:0x9B4BE8 };
+
+function buildMertabi(){
+  const root = new THREE.Group();
+  const hips = joint(0, 0.50, 0);
+  root.add(hips);
+
+  /* --- Beine: kurz, nur die Stiefel schauen unter dem Saum hervor -- */
+  const bootGeo = lathe("mboot", [
+    [0.00, 0.00], [0.105, 0.008], [0.122, 0.05], [0.112, 0.11],
+    [0.098, 0.15], [0.096, 0.19], [0.00, 0.20],
+  ]);
+  const leg = side => {
+    const j = joint(0.115 * side, 0, 0);
+    j.add(part(capsule(0.070, 0.16, 12), cloth(0x3A2A20), 0, -0.18, 0));
+    const b = part(bootGeo, hide(ROBE.boot), 0, -0.47, 0.012);
+    b.scale.set(1.05, 1.0, 1.45);
+    j.add(b);
+    return j;
+  };
+  const legL = leg(-1), legR = leg(1);
+  hips.add(legL, legR);
+
+  /* --- Robe: hängt an der Hüfte, damit sie beim Laufen nicht
+         mit den Beinen mitschwingt ------------------------------ */
+  const robe = part(lathe("mrobe", [
+    [0.000, 0.00], [0.315, 0.006], [0.300, 0.09], [0.255, 0.26],
+    [0.215, 0.42], [0.200, 0.56], [0.214, 0.68], [0.196, 0.80], [0.000, 0.82],
+  ], 24), cloth(ROBE.cloth), 0, -0.40, 0);
+  robe.scale.set(1.0, 1, 0.94);
+  hips.add(robe);
+
+  // Goldsaum unten
+  const hem = part(ring(0.302, 0.017, 26), cloth(ROBE.gold), 0, -0.30, 0);
+  hem.rotation.x = Math.PI/2; hem.scale.set(1, 1, 0.94);
+  hips.add(hem);
+  // Zwei senkrechte Goldbahnen vorn
+  for(const sx of [-1, 1]){
+    const strip = part(box(0.026, 0.46, 0.014), cloth(ROBE.gold),
+                       0.062 * sx, -0.175, 0.229);
+    strip.rotation.x = -0.24;
+    strip.rotation.z = -0.05 * sx;
+    hips.add(strip);
+  }
+
+  /* --- Rumpf ------------------------------------------------------ */
+  const torso = joint(0, 0.02, 0);
+  hips.add(torso);
+
+  // Gürtel mit Kronenschnalle
+  const belt = part(ring(0.208, 0.032, 22), hide(ROBE.belt), 0, 0.02, 0);
+  belt.rotation.x = Math.PI/2; belt.scale.set(1, 1, 0.94);
+  torso.add(belt);
+  const buckle = part(box(0.13, 0.10, 0.028), cloth(ROBE.gold), 0, 0.02, 0.223);
+  torso.add(buckle);
+  for(let i = 0; i < 3; i++)
+    torso.add(part(spike(0.018, 0.045, 8), cloth(ROBE.gold),
+                   (-0.036 + i * 0.036), 0.055, 0.226));
+
+  // Schulterpasse mit Goldkante
+  const yoke = part(lathe("myoke", [
+    [0.000, 0.00], [0.205, 0.01], [0.222, 0.08], [0.196, 0.15], [0.000, 0.16],
+  ], 22), cloth(ROBE.dark), 0, 0.30, 0);
+  yoke.scale.set(1.0, 1, 0.94);
+  torso.add(yoke);
+  const yokeTrim = part(ring(0.216, 0.014, 24), cloth(ROBE.gold), 0, 0.335, 0);
+  yokeTrim.rotation.x = Math.PI/2; yokeTrim.scale.set(1, 1, 0.94);
+  torso.add(yokeTrim);
+
+  /* --- Arme mit weiten Ärmeln ------------------------------------- */
+  const arm = side => {
+    const j = joint(0.205 * side, 0.40, 0);
+    const sleeve = part(lathe(`msleeve`, [
+      [0.000, 0.00], [0.098, 0.01], [0.092, 0.14], [0.082, 0.26], [0.000, 0.27],
+    ], 16), cloth(ROBE.cloth), 0, -0.28, 0);
+    j.add(sleeve);
+    const cuff = part(ring(0.086, 0.016, 18), cloth(ROBE.gold), 0, -0.26, 0);
+    cuff.rotation.x = Math.PI/2;
+    j.add(cuff);
+    j.add(part(capsule(0.050, 0.10, 12), skin(PAL.skin), 0, -0.34, 0));
+    const hand = part(ball(0.056, 14), skin(PAL.skin), 0, -0.43, 0);
+    hand.scale.set(0.9, 1.0, 1.05);
+    j.add(hand);
+    return j;
+  };
+  const armL = arm(-1), armR = arm(1);
+  torso.add(armL, armR);
+
+  /* --- Kristallstab in der rechten Hand ---------------------------
+     Wie beim Bogen: erst die Armneigung aufheben, dann steht der
+     Stab senkrecht, unabhängig von der Laufbewegung.            */
+  const staffMount = joint(0, -0.43, 0.02);
+  armR.add(staffMount);
+  staffMount.rotation.x = 0.25;
+  staffMount.rotation.z = -0.10;
+  staffMount.add(part(tube(0.021, 0.025, 1.20, 12), hide(ROBE.staff), 0, 0.26, 0));
+  for(const y of [-0.10, 0.44])
+    staffMount.add((() => { const g = part(ring(0.028, 0.010, 14), cloth(ROBE.gold), 0, y, 0);
+                            g.rotation.x = Math.PI/2; return g; })());
+  // Fassung und Kristall
+  const socket = part(tube(0.052, 0.030, 0.09, 10), cloth(ROBE.gold), 0, 0.845, 0);
+  staffMount.add(socket);
+  for(let i = 0; i < 4; i++){
+    const a = i * Math.PI/2;
+    const claw = part(spike(0.018, 0.13, 8), cloth(ROBE.gold),
+                      Math.sin(a) * 0.048, 0.925, Math.cos(a) * 0.048);
+    claw.rotation.set(Math.cos(a) * 0.35, 0, -Math.sin(a) * 0.35);
+    staffMount.add(claw);
+  }
+  const crystalMat = mat(ROBE.crystal, { emissive:ROBE.crystal, emissiveIntensity:1.4,
+                                         roughness:0.15, metalness:0.1 });
+  const up = part(spike(0.072, 0.19, 6), crystalMat, 0, 1.05, 0);
+  const dn = part(spike(0.072, 0.10, 6), crystalMat, 0, 0.905, 0);
+  dn.rotation.x = Math.PI;
+  staffMount.add(up, dn);
+
+  /* --- Kopf -------------------------------------------------------- */
+  torso.add(part(tube(0.058, 0.070, 0.10, 14), skin(PAL.skinDark), 0, 0.505, 0));
+  const head = joint(0, 0.635, 0);
+  torso.add(head);
+
+  const skullM = part(ball(0.142, 22), skin(PAL.skin), 0, 0.015, 0);
+  skullM.scale.set(1.0, 1.06, 0.97);
+  head.add(skullM);
+  head.add(part(ball(0.016, 10), skin(PAL.skin), 0, -0.012, 0.143));
+
+  const beardM = part(ball(0.148, 20), cloth(0x241812), 0, -0.070, 0.010);
+  beardM.scale.set(1.02, 0.60, 0.95);
+  head.add(beardM);
+  const mousM = part(capsule(0.021, 0.058, 10), cloth(0x241812), 0, -0.030, 0.122);
+  mousM.rotation.z = Math.PI/2;
+  head.add(mousM);
+  for(const ex of [-0.053, 0.053]){
+    head.add(part(ball(0.019, 12), mat(0xF4F0E7, { roughness:0.35 }), ex, 0.032, 0.116));
+    head.add(part(ball(0.010, 10), mat(0x3B2A1C, { roughness:0.3 }), ex, 0.032, 0.130));
+    const l = part(ring(0.044, 0.008, 20), metal(0xD8D4CB, 0.25), ex, 0.032, 0.140);
+    head.add(l);
+  }
+  head.add(part(tube(0.007, 0.007, 0.040, 8), metal(0xD8D4CB, 0.25), 0, 0.032, 0.146));
+  // Haaransatz unter der Kapuze
+  const fringe = part(ball(0.140, 18), cloth(PAL.hair), 0, 0.062, -0.010);
+  fringe.scale.set(1.02, 0.86, 1.02);
+  head.add(fringe);
+
+  /* --- Kapuze: Schale mit Ausschnitt nach vorn --------------------- */
+  const hoodMat = new THREE.MeshStandardMaterial({ color:ROBE.cloth, roughness:0.92,
+                                                   side:THREE.DoubleSide });
+  const hood = new THREE.Mesh(shell(0.205, 0.80, 28), hoodMat);
+  hood.position.set(0, 0.030, -0.030);
+  hood.scale.set(1.02, 1.10, 1.14);
+  hood.castShadow = true;
+  head.add(hood);
+  // Zipfel hinten
+  const peak = part(spike(0.085, 0.20, 10), cloth(ROBE.cloth), 0, 0.115, -0.185);
+  peak.rotation.x = 1.55;
+  head.add(peak);
+  // Goldkante um die Öffnung
+  const brim = part(ring(0.198, 0.017, 26), cloth(ROBE.gold), 0, 0.025, 0.006);
+  brim.rotation.x = -0.16;
+  brim.scale.set(1.02, 1.12, 1);
+  head.add(brim);
+
+  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop:staffMount,
+                        poseL:-1.25, poseR:-0.25, height:1.62 };
+  return root;
+}
+
+/* ============================================================
    ALLGEMEINE FIGUREN
    ============================================================ */
 const ACCENT = {
@@ -851,6 +1032,7 @@ function buildTower(kind, team){
 function buildModelFor(cardId, card){
   if(cardId === "abdu")  return buildAbdu();
   if(cardId === "yunus") return buildYunus();
+  if(cardId === "mertabi") return buildMertabi();
   if(card.kind === "building") return buildStructure(card, cardId);
   if(card.layer === "air") return buildFlyer(card, cardId);
   return buildWalker(card, cardId);

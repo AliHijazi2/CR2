@@ -313,6 +313,16 @@ const CARDS = {
     hp:520, damage:200, hitSpeed:1.15, range:5.8, speed:1.2,
     layer:"ground", targets:"both", radius:0.42 },
 
+  /* Mertabi · Zauberer · Kristallstab
+     Schließt die zweite große Lücke: Flächenschaden. Große
+     Explosion, dafür langsame Schlagfolge und kurze Reichweite —
+     er trifft selten, dann aber alles auf einmal.
+     Die Spiellogo-Einblendungen der Vorlage sind nicht nachgebaut. */
+  mertabi:{ name:"Mertabi", emoji:"🔮", art:"assets/mertabi.png", artScale:2.05,
+    cost:4, kind:"troop", count:1,
+    hp:640, damage:300, hitSpeed:1.9, range:5.2, speed:0.9,
+    layer:"ground", targets:"both", splash:1.6, radius:0.45 },
+
   /* --- Nahkampf & Tanks --- */
   steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
     hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
@@ -364,7 +374,7 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
-const DECK_BLUE = ["abdu","yunus","steinwaechter","feuermagier",
+const DECK_BLUE = ["abdu","yunus","mertabi","steinwaechter",
                    "strassenbande","fledermausschwarm","feuerball","speerturm"];
 const DECK_RED  = ["rammbock","klingenwache","bogenschuetzinnen","feuermagier",
                    "rattenrudel","speerbrueder","splitterregen","sturmfalke"];

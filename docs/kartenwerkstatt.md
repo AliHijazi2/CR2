@@ -245,16 +245,17 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 |---|---|---|---|
 | Tank / Frontlinie | 2–3 | 1 | 🔸 Abdu |
 | Einzelziel-Schaden | 3–4 | 2 | 🔸 Abdu, Yunus |
-| Flächenschaden | 2–3 | 0 | ❌ |
+| Flächenschaden | 2–3 | 1 | 🔸 Mertabi |
 | Schwarm | 2–3 | 0 | ❌ |
-| Kann Luftziele treffen | ≥ 4 | 1 | 🔸 Yunus |
+| Kann Luftziele treffen | ≥ 4 | 2 | 🔸 Yunus, Mertabi |
 | Lufteinheiten | 2–3 | 0 | ❌ |
 | Siegbedingung (nur Gebäude) | 1–2 | 0 | ❌ |
 | Zauber | 2–4 | 0 | ❌ |
 | Defensivgebäude | 1–2 | 0 | ❌ |
 
-**Dringendste Lücke:** Flächenschaden. Ohne ihn gewinnt jeder Schwarm, weil
-beide bisherigen Karten nur ein Ziel gleichzeitig treffen.
+**Dringendste Lücke:** ein **Schwarm** — mehrere billige Einheiten auf einer
+Karte. Ohne ihn fehlt die Antwort auf einzelne dicke Angreifer, und das
+Schere-Stein-Papier aus Tank / Einzelziel / Schwarm bleibt unvollständig.
 
 ### 7.4 Karten
 
@@ -341,3 +342,46 @@ Luftabwehr-Lücke.
 **Zu den Vorlagen:** Auf dem Referenzblatt sind ein Vereinswappen und das Logo
 einer realen Fluggesellschaft zu sehen. Beides ist im 3D-Modell **nicht**
 nachgebaut — übernommen sind nur Schnitt und Farben des Trikots.
+
+---
+
+#### 3 · Mertabi — Zauberer, Kristallstab
+
+![Mertabi](../assets/mertabi.png)
+
+Kapuzenrobe in Dunkelrot mit Goldbesatz, Ledergürtel mit Kronenschnalle,
+Stiefel, Brille, Vollbart. Stab aus dunklem Holz mit lila Kristall in
+goldener Fassung.
+
+| | |
+|---|---|
+| **Kosten** | 4 💧 |
+| **Lebenspunkte** | 640 |
+| **Schaden** | 300 pro Schlag |
+| **Angriff alle** | 1.9 s → **158 DPS** |
+| **Flächenschaden** | Radius **1.6** |
+| **Reichweite** | 5.2 |
+| **Tempo** | 0.9 (etwas unter mittel) |
+| **Ebene / Ziele** | Boden / **Boden + Luft** |
+| **Bild** | `assets/mertabi.png`, `artScale: 2.05` |
+
+**Sein Profil gegenüber dem Referenz-Feuermagier** (4 💧, 620 HP, 156 DPS,
+Rw 5.5, Splash 1.3): gleicher Dauerschaden, aber **größerer Explosionsradius**
+(1.6 statt 1.3) und deutlich höherer Einzelschlag (300 statt 250) — dafür
+kürzere Reichweite, langsamer unterwegs und mit 1.9 s die trägste
+Schlagfolge im Deck. Er trifft selten, dann aber alles auf einmal.
+
+**Im Konter-Netz:**
+- *Mertabi schlägt:* jeden Schwarm, gebündelte Angriffe, Lufteinheiten
+- *Mertabi verliert gegen:* einzelne schnelle Angreifer, die zwischen seinen
+  Schlägen bei ihm sind; alles mit mehr als 5.2 Reichweite
+
+Er ersetzt den Feuermagier im Startdeck und schließt damit die
+Flächenschaden-Lücke.
+
+**Balance nach dem Einbau** (300 Partien je Stufe, fester Testspieler):
+49 / 30 / 36 % Spielersiege. Leicht klar am leichtesten; Normal und Schwer
+liegen weiter innerhalb der Messtoleranz gleichauf.
+
+**Zu den Vorlagen:** Auf dem Referenzblatt sind zweimal Logos eines
+bestehenden Spiels eingeblendet. Die sind **nicht** nachgebaut.
