@@ -1252,6 +1252,168 @@ function buildWalker(card, cardId){
   return root;
 }
 
+/* ============================================================
+   ABU GOKU — fliegender Drache mit bärtigem Menschenkopf
+
+   Vom Referenzblatt: kleiner, dumpeliger blauer Schuppenkörper mit
+   hellblauem Bauch, blaue Fledermausschwingen, Stummelärmchen und
+   -beinchen mit Krallen, ein Schwanz — und darüber ein großer
+   menschlicher Kopf mit Vollbart, den oben eine blaue Schuppenkappe
+   mit kleinem Kamm einfasst. Karikatur: der Kopf ist absichtlich groß
+   gegenüber dem Körper.
+
+   Flieger: schwebt (rig.flying), die Schwingen sitzen auf armL/armR,
+   damit der Renderer sie schlagen lässt.
+   ============================================================ */
+const GOKU = { scale:0x3C7EC6, scaleDk:0x285C9E, belly:0x9CC6EA,
+               memb:0x5A9AD8, beard:0x4A3320, hair:0x3A2A1B,
+               claw:0xEAE4D2, horn:0xCad4dc };
+
+function buildAbuGoku(){
+  const root = new THREE.Group();
+  const s = 1.0;
+  const scaleMat  = mat(GOKU.scale,   { roughness:0.6, metalness:0.06 }, "leather");
+  const scaleDkMat= mat(GOKU.scaleDk, { roughness:0.6, metalness:0.06 }, "leather");
+  const bellyMat  = mat(GOKU.belly,   { roughness:0.66 }, "leather");
+  const membMat   = mat(GOKU.memb,    { roughness:0.78, side:THREE.DoubleSide });
+
+  const hips = joint(0, 0.95, 0);
+  root.add(hips);
+  const torso = joint(0, 0, 0);
+  hips.add(torso);
+
+  /* --- Drachenkörper: klein, rundlich, unter dem Kopf ------------- */
+  const body = part(lathe("gokubody", [
+    [0.00, 0.00], [0.115, 0.02], [0.165, 0.09], [0.180, 0.18],
+    [0.160, 0.27], [0.100, 0.34], [0.00, 0.36],
+  ], 18), scaleMat, 0, -0.34*s, 0);
+  body.scale.set(s, s, s*0.94);
+  torso.add(body);
+  // Hellerer Bauch vorn
+  const belly = part(ball(0.15*s, 16), bellyMat, 0, -0.20*s, 0.10*s);
+  belly.scale.set(0.78, 1.15, 0.5);
+  torso.add(belly);
+
+  /* --- Schwanz: nach hinten unten, verjüngt ---------------------- */
+  const tail = joint(0, -0.30*s, -0.12*s);
+  tail.rotation.x = 0.7;
+  torso.add(tail);
+  let tr = 0.075*s, ty = 0;
+  for(let i = 0; i < 4; i++){
+    tail.add(part(ball(tr, 12), i % 2 ? scaleDkMat : scaleMat, 0, ty, 0));
+    ty -= tr * 1.25; tr *= 0.76;
+  }
+  tail.add(part(spike(0.05*s, 0.11*s, 4), scaleDkMat, 0, ty + 0.02*s, 0));  // Schwanzspitze
+
+  /* --- Stummelärmchen und -beinchen mit Krallen ------------------ */
+  const stub = (x, y, z, len, rot) => {
+    const j = joint(x, y, z);
+    j.rotation.set(rot[0], rot[1], rot[2]);
+    j.add(part(capsule(0.045*s, len, 10), scaleMat, 0, -len*0.5, 0));
+    for(let k = -1; k <= 1; k++){
+      const claw = part(spike(0.018*s, 0.05*s, 6), mat(GOKU.claw, { roughness:0.4 }),
+                        k * 0.03*s, -len - 0.04*s, 0.02*s);
+      claw.rotation.x = 0.5;
+      j.add(claw);
+    }
+    torso.add(j);
+    return j;
+  };
+  stub(-0.17*s, -0.24*s, 0.06*s, 0.12*s, [0.5, 0, 0.5]);    // Arm links
+  stub( 0.17*s, -0.24*s, 0.06*s, 0.12*s, [0.5, 0, -0.5]);   // Arm rechts
+  stub(-0.11*s, -0.46*s, 0.04*s, 0.13*s, [0.25, 0, 0.15]);  // Bein links
+  stub( 0.11*s, -0.46*s, 0.04*s, 0.13*s, [0.25, 0, -0.15]); // Bein rechts
+
+  /* --- Fledermausschwingen (schlagen über armL/armR) ------------- */
+  const wing = side => {
+    const j = joint(0.15*s*side, 0.02*s, -0.04*s);
+    j.rotation.y = 0.6*side;              // nach hinten gefächert, sonst Bretter von vorn
+    // Vordere Spannknochen
+    const bone = part(capsule(0.024*s, 0.34*s, 8), scaleDkMat, 0.20*s*side, 0.06*s, 0);
+    bone.rotation.z = Math.PI/2 - 0.35*side;
+    j.add(bone);
+    // Membran: flach, nach außen-hinten aufgespannt
+    const memb = part(lathe(`gokuwing${side}`, [
+      [0.00, 0.00], [0.10, 0.12], [0.09, 0.34], [0.05, 0.52], [0.00, 0.62],
+    ], 8), membMat, 0.06*s*side, 0.02*s, -0.05*s);
+    memb.rotation.z = -Math.PI/2 * side;
+    memb.rotation.x = -0.2;
+    memb.scale.set(s*1.1, s*1.7, s*2.2);
+    j.add(memb);
+    // Zwei Fingerstreben auf der Membran
+    for(let f = 0; f < 2; f++){
+      const strut = part(capsule(0.012*s, 0.22*s - f*0.06*s, 6), scaleDkMat,
+                         (0.24 + f*0.12)*s*side, (0.02 - f*0.08)*s, -0.10*s);
+      strut.rotation.z = Math.PI/2 - (0.2 + f*0.35)*side;
+      j.add(strut);
+    }
+    return j;
+  };
+  const armL = wing(-1), armR = wing(1);
+  torso.add(armL, armR);
+
+  /* --- Großer Menschenkopf mit Vollbart -------------------------- */
+  const head = joint(0, 0.12*s, 0.02*s);
+  torso.add(head);
+
+  const skull = part(ball(0.175*s, 22), skin(PAL.skin), 0, 0, 0);
+  skull.scale.set(1.0, 1.04, 0.98);
+  head.add(skull);
+  head.add(part(ball(0.020*s, 10), skin(PAL.skin), 0, -0.02*s, 0.176*s));         // Nase
+
+  // Vollbart: umschließt Wangen und Kinn
+  const beard = part(ball(0.185*s, 20), cloth(GOKU.beard), 0, -0.085*s, 0.010*s);
+  beard.scale.set(1.02, 0.66, 0.96);
+  head.add(beard);
+  const mous = part(capsule(0.026*s, 0.075*s, 10), cloth(GOKU.beard), 0, -0.038*s, 0.150*s);
+  mous.rotation.z = Math.PI/2;
+  head.add(mous);
+  head.add(part(box(0.05*s, 0.014*s, 0.02*s), cloth(0x2A1C14), 0, -0.072*s, 0.158*s)); // Mund
+
+  // Augen mit kräftigen Brauen — blaue Iris wie in der Vorlage.
+  // Brauen bewusst höher und flacher als beim ersten Versuch, sonst
+  // sitzen sie auf den Augen und die Figur wirkt schläfrig.
+  for(const ex of [-0.066, 0.066]){
+    head.add(part(ball(0.026*s, 12), mat(0xF4F0E7, { roughness:0.35 }), ex*s, 0.042*s, 0.146*s));
+    head.add(part(ball(0.013*s, 10), mat(0x3A6BA8, { roughness:0.3 }), ex*s, 0.042*s, 0.164*s));
+    const brow = part(box(0.058*s, 0.018*s, 0.024*s), cloth(GOKU.hair), ex*s, 0.098*s, 0.150*s);
+    brow.rotation.z = ex > 0 ? -0.14 : 0.14;
+    head.add(brow);
+  }
+
+  /* --- Blaue Schuppenkappe statt Haar, mit Drachenkamm ----------- */
+  const cap = part(ball(0.180*s, 20), scaleMat, 0, 0.055*s, -0.02*s);
+  cap.scale.set(1.02, 0.96, 1.04);
+  head.add(cap);
+  const capBack = part(ball(0.135*s, 16), scaleMat, 0, 0.02*s, -0.12*s);
+  capBack.scale.set(0.94, 0.82, 1.05);
+  head.add(capBack);
+  // Kamm: eine Reihe Finnen über die Mitte nach hinten
+  for(let i = 0; i < 4; i++){
+    const fin = part(spike(0.028*s - i*0.004*s, 0.10*s - i*0.012*s, 4), scaleDkMat,
+                     0, 0.20*s - i*0.028*s, -0.02*s - i*0.055*s);
+    fin.rotation.x = -0.5 - i*0.12;
+    head.add(fin);
+  }
+  // Zwei kleine Hörner nach hinten oben an den Schläfen
+  for(const sx of [-1, 1]){
+    const horn = part(spike(0.028*s, 0.13*s, 6), mat(GOKU.horn, { roughness:0.5 }),
+                      0.135*s*sx, 0.13*s, -0.05*s);
+    horn.rotation.set(-0.7, 0, sx * 0.5);
+    head.add(horn);
+  }
+  // Kleine Wangenschuppen, wo Kappe und Bart auf die Haut treffen
+  for(const sx of [-1, 1]){
+    const sc = part(ball(0.05*s, 10), scaleMat, 0.15*s*sx, 0.02*s, 0.06*s);
+    sc.scale.set(0.5, 0.7, 0.6);
+    head.add(sc);
+  }
+
+  root.userData.rig = { hips, torso, head, legL:null, legR:null,
+                        armL, armR, prop:null, flying:true, height:1.5*s };
+  return root;
+}
+
 /** Flieger: schwebt, keine Beine, schlagende Schwingen. */
 function buildFlyer(card, cardId){
   const root = new THREE.Group();
@@ -1589,6 +1751,7 @@ function _rawModel(cardId, card){
   if(cardId === "mertabi") return buildMertabi();
   if(cardId === "timgioh") return buildTimgioh();
   if(cardId === "azizis") return buildAzizi();
+  if(cardId === "abugoku") return buildAbuGoku();
   if(card.kind === "building") return buildStructure(card, cardId);
   if(card.layer === "air") return buildFlyer(card, cardId);
   return buildWalker(card, cardId);

@@ -247,16 +247,16 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 | Einzelziel-Schaden | 3–4 | 2 | 🔸 Abdu, Yunus |
 | Flächenschaden | 2–3 | 1 | 🔸 Mertabi |
 | Schwarm | 2–3 | 1 | 🔸 Azizis |
-| Kann Luftziele treffen | ≥ 4 | 2 | 🔸 Yunus, Mertabi |
-| Lufteinheiten | 2–3 | 0 | ❌ |
+| Kann Luftziele treffen | ≥ 4 | 3 | 🔸 Yunus, Mertabi, Abu Goku |
+| Lufteinheiten | 2–3 | 1 | 🔸 Abu Goku |
 | Siegbedingung (nur Gebäude) | 1–2 | 0 | ❌ |
 | Zauber | 2–4 | 0 | ❌ |
 | Defensivgebäude | 1–2 | 0 | ❌ |
 
-**Geschlossen mit Azizis:** der **Schwarm** war die dringendste Lücke — ohne
-ihn fehlte die Antwort auf einzelne dicke Angreifer, und das
-Schere-Stein-Papier aus Tank / Einzelziel / Schwarm blieb unvollständig.
-Fünf eigene Charaktere sind damit im Roster.
+**Geschlossen mit Abu Goku:** die **Lufteinheit** war die letzte offene
+Rollen-Lücke im Kern. Mit ihm sind alle sechs eigenen Charaktere im Roster,
+und jede Grundrolle (Tank, Einzelziel, Fläche, Schwarm, Luft) ist besetzt.
+Offen bleiben nur noch Fremdrollen: Siegbedingung, Zauber, Defensivgebäude.
 
 ### 7.4 Karten
 
@@ -400,15 +400,16 @@ sich die Partien nicht spiegeln.
 | Eigene Charaktere | Abdu · Yunus · Mertabi | Abdu · Yunus · Mertabi |
 | Tank | Timgioh | Timgioh |
 | Schwarm | Azizis | Azizis |
+| Luft | Abu Goku | Abu Goku |
 | Siegbedingung | — | Rammbock |
-| Luft | Fledermäuse | Sturmfalke |
 | Zauber | Feuerball | Splitterregen |
 | Gebäude | Speerturm | — |
-| **Ø Kosten** | 3.75 💧 | 3.5 💧 |
+| **Ø Kosten** | 3.9 💧 | 3.6 💧 |
 
-Mit Azizis stehen jetzt alle fünf eigenen Charaktere in beiden Decks; der
-Schwarm-Platz wird nicht mehr von Platzhaltern (Straßenbande / Rattenrudel)
-gefüllt.
+Mit Abu Goku stehen jetzt alle **sechs** eigenen Charaktere in beiden
+Decks; sowohl der Schwarm- als auch der Luft-Platz wird nicht mehr von
+Platzhaltern gefüllt. Je zwei Fremdrollen bleiben (Zauber und Gebäude bzw.
+Siegbedingung und Zauber), damit sich die Partien nicht spiegeln.
 
 **Auseinanderhalten:** Da beide Seiten dieselben Modelle benutzen, bekommen
 gegnerische Figuren einen Rotstich (13 % Mischung) und eine orange
@@ -518,6 +519,60 @@ Die Werte sind nach dem Stat-Modell abgeleitet, nicht per Benchmark
 eingestellt: der Schwarm ist symmetrisch in beiden Decks, verschiebt die
 Partie also nicht einseitig. Ein Benchmark-Lauf steht als eigener Schritt
 noch aus.
+
+---
+
+#### 6 · Abu Goku — Drache, fliegender Feuerball-Werfer
+
+![Abu Goku](../assets/cards/abugoku.jpg)
+
+Kleiner, dumpeliger blauer Schuppenkörper mit hellblauem Bauch, blaue
+Fledermausschwingen, Stummelärmchen und -beinchen mit Krallen, ein
+Schwanz — darüber ein großer menschlicher Kopf mit Vollbart, oben
+eingefasst von einer blauen Schuppenkappe mit Drachenkamm und zwei
+kleinen Hörnern.
+
+| | |
+|---|---|
+| **Kosten** | 4 💧 |
+| **Lebenspunkte** | 720 |
+| **Schaden** | 160 pro Feuerball |
+| **Angriff alle** | 1.6 s → **100 DPS**, mit Flächenschaden |
+| **Reichweite** | 4.2 |
+| **Tempo** | 1.0 — mittel |
+| **Ebene / Ziele** | **Luft** / Boden + Luft |
+| **Fläche** | Splash 1.5 |
+| **Bild** | `assets/cards/abugoku.jpg` |
+
+**Sein Profil.** Die erste eigene Lufteinheit — im Grunde ein Feuermagier
+in der Luft. Fliegen ist ein starker Vorteil: nur Karten, die Luft
+treffen, kommen überhaupt an ihn heran. Bezahlt wird das mit dünner
+Panzerung. Gegenüber dem Feuermagier (Boden, 620 HP, 156 DPS, Reichweite
+5.5) ist er etwas zäher und beweglicher, dafür kurzreichweitiger.
+
+| | Kosten | HP | DPS | Reichw. | Ebene | Fläche |
+|---|---|---|---|---|---|---|
+| Feuermagier (Referenz, Boden) | 4 | 620 | 156 | 5.5 | Boden | 1.3 |
+| Sturmfalke (Referenz, Luft) | 4 | 900 | 100 | 2.5 | Luft | 1.2 |
+| **Abu Goku** | **4** | **720** | **100** | **4.2** | **Luft** | **1.5** |
+
+Zur Abgrenzung vom Sturmfalken: der ist ein zäher Kurzstrecken-Stürzer,
+Abu Goku der zerbrechlichere Weitwurf-Werfer mit größerem Splash.
+
+**Im Konter-Netz:**
+- *Abu Goku schlägt:* Bodenschwärme (Flächen-Feuerbälle), alles, was ihn
+  nicht nach oben treffen kann
+- *Abu Goku verliert gegen:* jede Luftabwehr — Yunus, Bogenschützinnen,
+  Fledermäuse, Sturmfalke, Feuermagier holen ihn schnell herunter
+
+Abu Goku nimmt in beiden Decks den Luft-Platz ein — beim Spieler statt der
+Fledermäuse, beim Gegner statt des Sturmfalken. Damit stehen alle sechs
+eigenen Charaktere in beiden Decks. Werte abgeleitet, Benchmark offen.
+
+**Hinweis „Feuerball".** Fernangriffe im Spiel haben kein sichtbares
+Geschoss — wie bei allen Fernkämpfern (Yunus, Mertabi, Feuermagier) ist
+der Treffer sofort. „Feuerball" heißt hier Flächenschaden; ein echtes
+Projektilsystem wäre eine eigene Änderung für alle Fernkämpfer.
 
 ---
 

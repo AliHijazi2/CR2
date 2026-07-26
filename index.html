@@ -424,6 +424,24 @@ const CARDS = {
     hp:240, damage:92, hitSpeed:1.1, range:1.2, speed:1.4,
     layer:"ground", targets:"ground", radius:0.30 },
 
+  /* Abu Goku · Drache · fliegender Feuerball-Werfer
+     Schließt die letzte Rollen-Lücke: eine eigene Lufteinheit. Ein
+     fliegender Fernkämpfer mit Flächenschaden — im Grunde ein Feuermagier
+     in der Luft. Fliegen ist ein starker Vorteil: nur Karten, die Luft
+     treffen, kommen überhaupt an ihn heran. Bezahlt wird das mit wenig
+     Panzerung — 720 HP, weniger als der Sturmfalke (900). Jede Luftabwehr
+     (Yunus, Bogenschützinnen, Fledermäuse, Sturmfalke, Feuermagier)
+     holt ihn schnell herunter.
+     Zur Abgrenzung vom Sturmfalken: der ist ein zäher Kurzstrecken-Stürzer
+     (Reichweite 2.5), Abu Goku der zerbrechliche Weitwurf-Werfer
+     (Reichweite 4.2, größerer Splash). "Feuerball" heißt hier
+     Flächenschaden — ein sichtbares Geschoss gibt es wie bei allen
+     Fernkämpfern nicht.                                               */
+  abugoku:{ name:"Abu Goku", emoji:"🐉", card:"assets/cards/abugoku.jpg",
+    cost:4, kind:"troop", count:1,
+    hp:720, damage:160, hitSpeed:1.6, range:4.2, speed:1.0,
+    layer:"air", targets:"both", splash:1.5, radius:0.5 },
+
   /* --- Nahkampf & Tanks --- */
   steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
     hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
@@ -475,19 +493,18 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
-// Azizis ist der eigene Schwarm und nimmt in beiden Decks den
-// Schwarm-Platz ein — beim Spieler statt der Strassenbande, beim Gegner
-// statt des Rattenrudels. Damit spielen beide Seiten alle fuenf eigenen
-// Charaktere (Abdu, Yunus, Mertabi, Timgioh, Azizis).
+// Alle sechs eigenen Charaktere stehen in beiden Decks (Abdu, Yunus,
+// Mertabi, Timgioh, Azizis, Abu Goku) — Abu Goku nimmt den Luft-Platz
+// ein, beim Spieler statt der Fledermaeuse, beim Gegner statt des
+// Sturmfalken. Bleiben je zwei Fueller-Plaetze.
 const DECK_BLUE = ["abdu","yunus","mertabi","timgioh",
-                   "azizis","fledermausschwarm","feuerball","speerturm"];
+                   "azizis","abugoku","feuerball","speerturm"];
 // Der Gegner spielt dieselben eigenen Charaktere wie du — sonst waeren
-// sie nur Deko im Spielerdeck. Die uebrigen drei Plaetze sind bewusst
+// sie nur Deko im Spielerdeck. Die uebrigen zwei Plaetze sind bewusst
 // anders besetzt als in DECK_BLUE, damit sich die Partien unterscheiden:
-// Rammbock als Siegbedingung, Splitterregen als Zauber, Sturmfalke als
-// Lufteinheit.
+// Rammbock als Siegbedingung, Splitterregen als Zauber.
 const DECK_RED  = ["abdu","yunus","mertabi","timgioh",
-                   "azizis","rammbock","splitterregen","sturmfalke"];
+                   "azizis","abugoku","rammbock","splitterregen"];
 
 /* interval  = Sekunden zwischen zwei Entscheidungen (Reaktionszeit)
    savings   = ab wie viel Elixier die KI zum Angriff übergeht.
