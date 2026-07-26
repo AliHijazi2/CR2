@@ -141,7 +141,9 @@ canvas{
   transition:transform .09s ease,border-color .09s ease,background .09s ease;
   font:inherit;color:inherit;
 }
-.card .ico{font-family:var(--font-emoji);font-size:24px;line-height:1.05;}
+.card .ico{font-family:var(--font-emoji);font-size:24px;line-height:1.05;
+  height:30px;display:flex;align-items:center;justify-content:center;}
+.card .ico img{max-height:100%;max-width:100%;object-fit:contain;image-rendering:auto;}
 .card .nm{font-size:8.5px;letter-spacing:.03em;color:var(--muted);text-align:center;line-height:1.15;}
 .card .cost{
   position:absolute;top:-5px;left:-4px;
@@ -471,6 +473,7 @@ function spawnTroop(team, id, card, x, y){
     }
     W.units.push({
       id:++uid, team, cardId:id, name:card.name, emoji:card.emoji,
+      art:card.art || null, artScale:card.artScale || 0,
       x:clamp(x+ox, 0.5, AW-0.5), y:clamp(y+oy, 0.5, AH-0.5),
       hp:card.hp, maxHp:card.hp,
       damage:card.damage, hitSpeed:card.hitSpeed, range:card.range,
@@ -905,6 +908,41 @@ const cv = document.getElementById("cv");
 const ctx = cv.getContext("2d");
 let S = 20;                          // Pixel pro Kachel
 
+/* ---- Bildmaterial ---------------------------------------------------
+   Jede Karte darf statt des Emojis ein Bild tragen:
+
+     klingenwache:{ …, art:"assets/klingenwache.png", artScale:1.8 }
+
+   art      Pfad oder data:-URI zum Bild (Blickrichtung: nach unten)
+   artScale Höhe des Bildes als Vielfaches des Einheiten-Durchmessers
+            (1.0 = so hoch wie breit, ~1.8 für stehende Figuren)
+
+   Solange kein Bild da ist oder es nicht lädt, wird das Emoji gezeigt.
+   Dadurch bleibt das Spiel in jedem Zwischenzustand spielbar.
+--------------------------------------------------------------------- */
+const artCache = new Map();
+function getArt(src){
+  if(!src) return null;
+  let entry = artCache.get(src);
+  if(!entry){
+    entry = { img:new Image(), ready:false };
+    entry.img.onload  = () => { entry.ready = true; };
+    entry.img.onerror = () => { console.warn("Bild nicht ladbar, Emoji bleibt:", src); };
+    entry.img.src = src;
+    artCache.set(src, entry);
+  }
+  return entry.ready ? entry.img : null;
+}
+
+/** Flacher Team-Ring am Boden — bei Bildfiguren die einzige Team-Kennung. */
+function teamDisc(cx, cy, r, team){
+  ctx.fillStyle = team === "blue" ? "rgba(76,125,255,.30)" : "rgba(255,90,60,.30)";
+  ctx.beginPath(); ctx.ellipse(cx, cy, r, r*0.42, 0, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = team === "blue" ? "#6E97FF" : "#FF8368";
+  ctx.lineWidth = Math.max(1.2, r*0.14);
+  ctx.beginPath(); ctx.ellipse(cx, cy, r, r*0.42, 0, 0, Math.PI*2); ctx.stroke();
+}
+
 function resize(){
   const r = cv.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1031,15 +1069,24 @@ function drawUnit(u){
   }
 
   ctx.globalAlpha = u.deploy > 0 ? 0.45 : 1;
-  ctx.fillStyle = u.team === "blue" ? "#2E4EA8" : "#9E3823";
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = u.team === "blue" ? "#6E97FF" : "#FF8368";
-  ctx.lineWidth = Math.max(1.4, r*0.16);
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+  const art = getArt(u.art);
+  if(art){
+    // Figur: Team-Ring liegt am Boden, das Bild steht darauf.
+    teamDisc(cx, cy, r, u.team);
+    const h = r * 2 * (u.artScale || 1.8);
+    const w = h * (art.naturalWidth / art.naturalHeight || 1);
+    ctx.drawImage(art, cx - w/2, cy - h + r*0.42, w, h);
+  } else {
+    ctx.fillStyle = u.team === "blue" ? "#2E4EA8" : "#9E3823";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = u.team === "blue" ? "#6E97FF" : "#FF8368";
+    ctx.lineWidth = Math.max(1.4, r*0.16);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
 
-  ctx.font = `${r*1.35}px ${getComputedStyle(document.body).getPropertyValue("--font-emoji")}`;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(u.emoji, cx, cy + r*0.06);
+    ctx.font = `${r*1.35}px ${getComputedStyle(document.body).getPropertyValue("--font-emoji")}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(u.emoji, cx, cy + r*0.06);
+  }
   ctx.globalAlpha = 1;
 
   if(u.frozen > 0){
@@ -1142,7 +1189,16 @@ function syncHud(){
     if(!c) continue;
     if(b.dataset.id !== id){
       b.dataset.id = id;
-      b.querySelector(".ico").textContent = c.emoji;
+      const ico = b.querySelector(".ico");
+      if(c.art){
+        ico.innerHTML = "";
+        const im = new Image();
+        im.src = c.art; im.alt = c.name;
+        im.onerror = () => { ico.textContent = c.emoji; };
+        ico.appendChild(im);
+      } else {
+        ico.textContent = c.emoji;
+      }
       b.querySelector(".nm").textContent = c.name;
       b.querySelector(".cost").textContent = c.cost;
     }
