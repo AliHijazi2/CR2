@@ -310,6 +310,13 @@ canvas{
 }
 .collection.full .card:not(.inDeck){opacity:.28;}
 
+/* Im Menü, Baukasten oder Ergebnis sind die Spiel-Leisten (Uhr oben,
+   Elixier und Handkarten unten) fehl am Platz. Ausgeblendet füllt die
+   Bühne den ganzen Bildschirm und das Overlay deckt alles ab. Die
+   Karten erscheinen erst, wenn der Kampf startet. */
+#app.overlay #status,
+#app.overlay #dock{ display:none; }
+
 #hint{
   position:absolute;left:0;right:0;bottom:9px;text-align:center;
   font-size:10.5px;letter-spacing:.05em;color:var(--muted);
@@ -9758,9 +9765,17 @@ document.addEventListener("keydown", ev => {
      endVeil   — Ergebnis, danach Nochmal oder zurück ins Menü
    Das Deck lebt in playerDeck (oben, aus localStorage); der Baukasten
    arbeitet auf einer Arbeitskopie und schreibt erst bei „Fertig“ zurück. */
+const app         = document.getElementById("app");
 const menuVeil    = document.getElementById("menuVeil");
 const deckVeil    = document.getElementById("deckVeil");
 const endVeil     = document.getElementById("endVeil");
+
+/* Spiel-Leisten (Uhr, Elixier, Hand) nur während des Kampfes zeigen —
+   also wenn kein Vollbild-Overlay offen ist. */
+function setChrome(){
+  app.classList.toggle("overlay",
+    !menuVeil.hidden || !deckVeil.hidden || !endVeil.hidden);
+}
 const menuDeckEl  = document.getElementById("menuDeck");
 const deckStripEl = document.getElementById("deckStrip");
 const deckCountEl = document.getElementById("deckCount");
@@ -9847,6 +9862,7 @@ function openDeck(){
   deckWorking = playerDeck.slice();
   renderBuilder();
   menuVeil.hidden = true; deckVeil.hidden = false;
+  setChrome();
 }
 function closeDeck(save){
   if(save){
@@ -9856,9 +9872,11 @@ function closeDeck(save){
     renderMenuDeck();
   }
   deckVeil.hidden = true; menuVeil.hidden = false;
+  setChrome();
 }
 function showMenu(){
   endVeil.hidden = true; deckVeil.hidden = true; menuVeil.hidden = false;
+  setChrome();
 }
 
 /* ----- Ergebnis ----- */
@@ -9871,6 +9889,7 @@ function showEnd(){
   document.getElementById("endTally").textContent = `${W.blue.crowns} : ${W.red.crowns} Türme`;
   document.getElementById("endWhy").textContent = W.reason;
   endVeil.hidden = false;
+  setChrome();
 }
 
 /* ----- Kampf starten ----- */
@@ -9882,6 +9901,7 @@ function start(){
   resize();
   syncHud();
   menuVeil.hidden = true; deckVeil.hidden = true; endVeil.hidden = true;
+  setChrome();
   hintEl.hidden = true;
   acc = 0; last = 0;
   if(!running){ running = true; requestAnimationFrame(frame); }
@@ -9898,6 +9918,7 @@ document.getElementById("menuBtn").addEventListener("click", showMenu);
 buildCollection();
 renderMenuDeck();
 reflectDiff();
+setChrome();                 // beim Start ist das Menü offen: Leisten aus
 initScene(cv);
 newWorld(difficulty);
 buildHand();
