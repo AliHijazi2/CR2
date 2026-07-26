@@ -15,6 +15,10 @@
 | — | ✅ Extra-Mechaniken **bestätigt**: ❄️ Einfrieren (Statuseffekt), ☄️ Rückstoß, 🎈 Todesexplosion |
 | — | ❌ 🕳️ Rattenhöhle (Gebäude spawnt Einheiten) **verworfen** — Mechanik kommt nicht in die Engine |
 | — | 🔨 Roster wird **selbst entworfen**, Abschnitt 3 dient nur als Maßstab für Stat-Größenordnungen |
+| — | 🗑️ Vorschlags-Roster (Abschnitt 3) wird **vollständig ersetzt** — keine der 18 Karten kommt ins Spiel |
+| — | 📏 Roster-Größe **offen** — wir sammeln, ich melde Lücken und Überschneidungen |
+| — | 🎨 **Kein festes Setting** — Stilmix erlaubt |
+| — | 🐌 Ablauf: **eine Karte pro Runde**, ich liefere Stats + Konter-Einordnung zurück |
 
 ---
 
@@ -68,7 +72,12 @@ Der Königsturm **schläft** zu Beginn. Er erwacht, wenn ein eigener Wachturm f�
 
 ---
 
-## 3. Roster — 18 Karten
+## 3. REFERENZ-Roster — kommt NICHT ins Spiel
+
+> ⚠️ Diese 18 Karten wurden **verworfen** und werden vollständig durch eigene ersetzt.
+> Sie bleiben nur als **Maßstab** stehen: Woran man ablesen kann, welche HP-, DPS-
+> und Reichweiten-Größenordnungen bei welchen Elixierkosten ausgewogen sind.
+> Der echte Roster steht in Abschnitt 7.
 
 ### 3.1 Nahkampf & Tanks (Boden)
 
@@ -228,6 +237,22 @@ Die drei Schadensarten bilden absichtlich ein Schere-Stein-Papier:
 **Schwarm** schlägt **Einzelziel-Schaden** schlägt **Tank** schlägt **Schwarm**.
 Wenn eine der drei Rollen fehlt, kippt das ganze Spiel in eine Richtung.
 
-### 7.3 Karten
+### 7.3 Rollen-Abdeckung — Live-Stand
 
-*(noch leer)*
+Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
+
+| Rolle | Ziel | Aktuell | Status |
+|---|---|---|---|
+| Tank / Frontlinie | 2–3 | 0 | ❌ |
+| Einzelziel-Schaden | 3–4 | 0 | ❌ |
+| Flächenschaden | 2–3 | 0 | ❌ |
+| Schwarm | 2–3 | 0 | ❌ |
+| Kann Luftziele treffen | ≥ 4 | 0 | ❌ |
+| Lufteinheiten | 2–3 | 0 | ❌ |
+| Siegbedingung (nur Gebäude) | 1–2 | 0 | ❌ |
+| Zauber | 2–4 | 0 | ❌ |
+| Defensivgebäude | 1–2 | 0 | ❌ |
+
+### 7.4 Karten
+
+*(noch leer — Karte 1 kommt als Nächstes)*
