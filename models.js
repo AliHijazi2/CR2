@@ -46,23 +46,48 @@ PAL.leatherDk = 0x402916;
    Einheiten entstehen und sterben im Sekundentakt. Ohne diesen
    Vorrat würde für jede Figur neu auf die Grafikkarte geladen. ---- */
 const _mats = new Map();
-function mat(color, opts){
-  const key = color + "|" + JSON.stringify(opts || {});
+/**
+ * texKind hängt einen PBR-Satz aus textures.js an (Relief + Rauheit).
+ * Die Farbe bleibt die Grundfarbe der Figur — die Karten liefern nur
+ * Oberfläche. Ohne sie sieht jedes Material wie lackiertes Plastik aus.
+ */
+function mat(color, opts, texKind){
+  const key = color + "|" + JSON.stringify(opts || {}) + "|" + (texKind || "");
   let m = _mats.get(key);
   if(!m){
     m = new THREE.MeshStandardMaterial(Object.assign({
       color, roughness:0.78, metalness:0.02,
     }, opts || {}));
+    // Kachelung und Reliefstaerke je Materialart. Pauschale Werte
+    // lassen kleine Teile wie Geflecht aussehen: die Maserung
+    // wiederholt sich dann mehrfach auf wenigen Zentimetern.
+    const TUNE = {
+      cloth:   [1.2, 0.45],
+      leather: [1.0, 0.55],
+      metal:   [1.0, 0.50],
+      woodN:   [0.5, 0.55],
+      stoneN:  [0.9, 0.75],
+    };
+    if(texKind && typeof applyTexSet === "function"){
+      const t = TUNE[texKind] || [1, 1];
+      applyTexSet(m, texKind, t[0], t[1]);
+    }
+    // Kennzeichnung fuer das Verschmelzen: Teile mit gleicher
+    // Oberflaechenart koennen sich EIN Material teilen, wenn ihre
+    // Farbe in die Geometrie gebacken wird.
+    m.userData.tex = texKind || "plain";
+    m.userData.rough = Math.round((opts && opts.roughness !== undefined ? opts.roughness : 0.78) * 10) / 10;
+    m.userData.metal = Math.round((opts && opts.metalness !== undefined ? opts.metalness : 0.02) * 10) / 10;
     _mats.set(key, m);
   }
   return m;
 }
-/** Metall: braucht wenig Rauheit und viel Metallanteil, damit die
-    Umgebungsspiegelung aus render3d.js überhaupt sichtbar wird. */
-const metal = (c, rough) => mat(c, { roughness: rough === undefined ? 0.32 : rough, metalness:0.92 });
-const skin  = c => mat(c, { roughness:0.62, metalness:0.0 });
-const cloth = c => mat(c, { roughness:0.92, metalness:0.0 });
-const hide  = c => mat(c, { roughness:0.68, metalness:0.03 });
+const metal = (c, rough) => mat(c, { roughness: rough === undefined ? 0.32 : rough, metalness:0.92 }, "metal");
+const skin  = c => mat(c, { roughness:0.58, metalness:0.0 });          // Haut ohne Relief
+const cloth = c => mat(c, { roughness:0.92, metalness:0.0 }, "cloth");
+const hide  = c => mat(c, { roughness:0.68, metalness:0.03 }, "leather");
+const wood  = c => mat(c, { roughness:0.86, metalness:0.0 }, "woodN");
+const stone = c => mat(c, { roughness:0.95, metalness:0.0 }, "stoneN");
 
 const _geos = new Map();
 function geo(key, make){
@@ -82,8 +107,16 @@ const tube = (rt, rb, h, s) =>
   geo(`c${rt},${rb},${h},${s||16}`, () => new THREE.CylinderGeometry(rt, rb, h, s || 16));
 const spike = (r, h, s) =>
   geo(`k${r},${h},${s||12}`, () => new THREE.ConeGeometry(r, h, s || 12));
-const box = (w, h, d, r) =>
-  geo(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d));
+/** Quader mit gebrochenen Kanten. Eine scharfe 90-Grad-Kante faengt
+    kein Licht ein und liest sich sofort als billig; eine kleine
+    Rundung erzeugt dagegen einen Glanzsaum. Radius richtet sich nach
+    der kuerzesten Seite, damit duenne Riemen nicht zu Wuersten werden. */
+const box = (w, h, d) =>
+  geo(`b${w},${h},${d}`, () => {
+    const r = Math.min(w, h, d) * 0.3;
+    return r > 0.004 ? new THREE.RoundedBoxGeometry(w, h, d, 2, r)
+                     : new THREE.BoxGeometry(w, h, d);
+  });
 const ring = (r, t, s) =>
   geo(`t${r},${t},${s||16}`, () => new THREE.TorusGeometry(r, t, 8, s || 16));
 /** Kugelschale mit Ausschnitt: für eine Kapuze, die vorn offen ist.
@@ -335,7 +368,7 @@ function buildAbdu(){
   const axe = joint(0, -0.485, 0.045);        // sitzt im Panzerhandschuh
   armR.add(axe);
   axe.rotation.set(-0.30, 0.10, -0.52);      // schraeg nach hinten oben
-  axe.add(part(tube(0.026, 0.030, 0.92, 12), hide(PAL.wood), 0, 0.16, 0));
+  axe.add(part(tube(0.026, 0.030, 0.92, 12), wood(PAL.wood), 0, 0.16, 0));
   axe.add(part(ball(0.040, 14), metal(PAL.steelDark, 0.35), 0, -0.30, 0));
   const grip = part(ring(0.036, 0.011, 14), hide(PAL.leatherDk), 0, -0.10, 0);
   grip.rotation.x = Math.PI/2;
@@ -395,6 +428,14 @@ function kitMaterial(){
   t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   _kitMat = new THREE.MeshStandardMaterial({ map:t, roughness:0.88, metalness:0.0 });
+  // Streifen bleiben, aber das Gewebe-Relief kommt dazu
+  if(typeof texSet === "function"){
+    const cl = texSet("cloth");
+    _kitMat.normalMap = cl.normalMap;
+    _kitMat.roughnessMap = cl.roughnessMap;
+    _kitMat.normalScale = new THREE.Vector2(0.8, 0.8);
+    _kitMat.needsUpdate = true;
+  }
   return _kitMat;
 }
 
@@ -454,7 +495,7 @@ function buildYunus(){
   for(let i = 0; i < 5; i++){
     const a = i * 1.257, r = 0.030;
     const px2 = Math.sin(a) * r, pz2 = Math.cos(a) * r;
-    quiver.add(part(tube(0.007, 0.007, 0.40, 6), hide(KIT.shaft), px2, 0.24, pz2));
+    quiver.add(part(tube(0.007, 0.007, 0.40, 6), wood(KIT.shaft), px2, 0.24, pz2));
     for(let f = 0; f < 3; f++){
       const fa = f * 2.094;
       const fl = part(box(0.006, 0.075, 0.038), cloth(KIT.fletch),
@@ -506,14 +547,14 @@ function buildYunus(){
 
   const ARC = Math.PI * 1.1, RAD = 0.295;
   const limb = part(geo("fbbow2", () => new THREE.TorusGeometry(RAD, 0.016, 8, 28, ARC)),
-                    hide(KIT.bow), 0, 0, 0);
+                    wood(KIT.bow), 0, 0, 0);
   limb.rotation.z = -ARC/2;                // Bogenbauch auf +X zentrieren
   bow.add(limb);
   bow.add(part(ball(0.030, 12), hide(PAL.leatherDk), RAD, 0, 0));       // Griff
   const chordX = RAD * Math.cos(ARC/2), chordL = 2 * RAD * Math.sin(ARC/2);
   bow.add(part(tube(0.004, 0.004, chordL, 6), cloth(0xE8E2D4), chordX, 0, 0));
   // Aufgelegter Pfeil, waagerecht durch den Griff nach vorn
-  const shaft = part(tube(0.006, 0.006, 0.52, 6), hide(KIT.shaft), RAD * 0.30, 0.0, 0);
+  const shaft = part(tube(0.006, 0.006, 0.52, 6), wood(KIT.shaft), RAD * 0.30, 0.0, 0);
   shaft.rotation.z = Math.PI/2;
   bow.add(shaft);
   const tip = part(spike(0.019, 0.06, 8), metal(PAL.steelDark, 0.35), RAD * 0.30 + 0.29, 0, 0);
@@ -685,7 +726,7 @@ function buildMertabi(){
   armR.add(staffMount);
   staffMount.rotation.x = 0.25;
   staffMount.rotation.z = -0.10;
-  staffMount.add(part(tube(0.021, 0.025, 1.20, 12), hide(ROBE.staff), 0, 0.26, 0));
+  staffMount.add(part(tube(0.021, 0.025, 1.20, 12), wood(ROBE.staff), 0, 0.26, 0));
   for(const y of [-0.10, 0.44])
     staffMount.add((() => { const g = part(ring(0.028, 0.010, 14), cloth(ROBE.gold), 0, y, 0);
                             g.rotation.x = Math.PI/2; return g; })());
@@ -823,7 +864,7 @@ function buildTimgioh(){
   const CH = 0.222;
   for(let i = 0; i < 9; i++){
     const a = -1.15 + i * 0.2875;
-    const pl = part(box(0.062, 0.33, 0.042), hide(i % 2 ? TIM.plank : TIM.plankDk),
+    const pl = part(box(0.062, 0.33, 0.042), wood(i % 2 ? TIM.plank : TIM.plankDk),
                     Math.sin(a) * CH * 1.06, 0.335, Math.cos(a) * CH * 0.90);
     pl.rotation.y = a;
     torso.add(pl);
@@ -856,7 +897,7 @@ function buildTimgioh(){
     const g = joint(0.278 * side, 0.455, 0);
     g.rotation.z = -0.28 * side;
     for(let i = 0; i < 3; i++){
-      const pl = part(box(0.165, 0.070, 0.195), hide(i % 2 ? TIM.plank : TIM.plankDk),
+      const pl = part(box(0.165, 0.070, 0.195), wood(i % 2 ? TIM.plank : TIM.plankDk),
                       0.02 * side, 0.015 - i * 0.082, 0);
       pl.rotation.x = 0.06 * i;
       g.add(pl);
@@ -1022,17 +1063,17 @@ function buildWalker(card, cardId){
   const prop = joint(0, -0.27*s, 0.03*s);
   armR.add(prop);
   if(card.targets === "buildings"){
-    prop.add(part(tube(0.02*s, 0.02*s, 0.5*s, 10), hide(PAL.wood), 0, 0.16*s, 0));
+    prop.add(part(tube(0.02*s, 0.02*s, 0.5*s, 10), wood(PAL.wood), 0, 0.16*s, 0));
     const ramHead = part(capsule(0.085*s, 0.10*s, 14), metal(PAL.steelDark, 0.4), 0, 0.42*s, 0);
     ramHead.rotation.x = Math.PI/2;
     prop.add(ramHead);
   } else if(card.splash){
-    prop.add(part(tube(0.018*s, 0.020*s, 0.62*s, 10), hide(PAL.wood), 0, 0.18*s, 0));
+    prop.add(part(tube(0.018*s, 0.020*s, 0.62*s, 10), wood(PAL.wood), 0, 0.18*s, 0));
     prop.add(part(ball(0.072*s, 16),
                   mat(acc, { emissive:acc, emissiveIntensity:0.9, roughness:0.3 }), 0, 0.50*s, 0));
   } else if(ranged){
     const bow = part(geo("bow2", () => new THREE.TorusGeometry(0.185, 0.016, 8, 24, Math.PI*1.3)),
-                     hide(PAL.wood), 0, 0.09*s, 0);
+                     wood(PAL.wood), 0, 0.09*s, 0);
     bow.scale.setScalar(s); bow.rotation.y = Math.PI/2;
     prop.add(bow);
   } else {
@@ -1149,17 +1190,17 @@ function buildTower(kind, team){
   const king = kind === "king";
   const R = king ? 1.15 : 0.95;
   const H = king ? 2.6 : 2.0;
-  const stone  = mat(0x8B8375, { roughness:0.96 });
-  const stone2 = mat(0x9C947F, { roughness:0.94 });
+  const stoneA = stone(0x8B8375);
+  const stone2 = stone(0x9C947F);
 
   root.add(part(lathe(`base${king?1:0}`, [
     [0.00, 0.00], [R*1.30, 0.03], [R*1.26, 0.22], [R*1.10, 0.34], [0.00, 0.35],
-  ], 22), mat(0x6E695C, { roughness:0.97 }), 0, 0, 0));
+  ], 22), stone(0x6E695C), 0, 0, 0));
 
   root.add(part(lathe(`shaft${king?1:0}`, [
     [0.00, 0.00], [R, 0.02], [R*0.94, H*0.45], [R*0.90, H*0.82],
     [R*1.12, H*0.90], [R*1.10, H], [0.00, H],
-  ], 24), stone, 0, 0.30, 0));
+  ], 24), stoneA, 0, 0.30, 0));
 
   // Zinnen
   const n = king ? 12 : 10;
@@ -1178,12 +1219,12 @@ function buildTower(kind, team){
   // Schießscharten
   for(let i = 0; i < 4; i++){
     const a = i * Math.PI/2 + Math.PI/4;
-    root.add(part(box(0.12, 0.32, 0.10), mat(0x3A362E, { roughness:1 }),
+    root.add(part(box(0.12, 0.32, 0.10), stone(0x3A362E),
                   Math.sin(a)*R*0.93, H*0.62, Math.cos(a)*R*0.93));
   }
 
   if(king){
-    root.add(part(tube(0.045, 0.045, 1.5, 10), hide(PAL.wood), 0, H + 1.35, 0));
+    root.add(part(tube(0.045, 0.045, 1.5, 10), wood(PAL.wood), 0, H + 1.35, 0));
     const flag = part(box(0.66, 0.40, 0.02), mat(teamCol, { roughness:0.75 }), 0.34, H + 1.85, 0);
     root.add(flag);
     for(let i = 0; i < 6; i++){
@@ -1194,14 +1235,189 @@ function buildTower(kind, team){
     root.userData.flag = flag;
   }
   root.traverse(o => { if(o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  const flagRef = root.userData.flag;
+  if(flagRef) flagRef.name = "rig_flag";   // Fahne bleibt beweglich
+  flattenNonRig(root);
+  mergeStatic(root);                       // Turm ist statisch bis auf die Fahne
+  if(flagRef) root.userData.flag = flagRef;
   root.userData.height = H + (king ? 2.3 : 0.9);
   return root;
 }
 
 /* ============================================================
-   AUSWAHL
+   AUSWAHL UND OPTIMIERUNG
+
+   Eine Figur besteht aus bis zu sechzig Einzelteilen. Zehn Riesen
+   auf dem Feld waren dadurch über 600 Zeichenaufrufe — auf
+   Mobilgeräten der Flaschenhals.
+
+   Zwei Schritte dagegen:
+     1. Unbewegliche Geschwister mit gleichem Material werden zu
+        einem Mesh verschmolzen. Was sich bewegt (Arme, Beine,
+        Kopf, Waffe), bleibt ein eigenes Gelenk.
+     2. Jede Kartenart wird genau EINMAL gebaut und danach geklont.
+        Das spart zusätzlich die Bauzeit beim Aufstellen.
    ============================================================ */
+const RIG_KEYS = ["hips", "torso", "head", "legL", "legR", "armL", "armR", "prop"];
+
+/**
+ * Löst alle Gruppen auf, die kein Gelenk sind (Schulterstücke, Mantel,
+ * Waffenaufhängung …), und bäckt ihre Lage in die Kinder ein. Erst
+ * dadurch landen genug gleichmaterialige Teile im selben Gelenk, dass
+ * sich das Verschmelzen lohnt.
+ */
+function flattenNonRig(root){
+  let changed = true;
+  while(changed){
+    changed = false;
+    const victims = [];
+    root.traverse(o => {
+      if(o === root || !o.isGroup) return;
+      if(o.name && o.name.startsWith("rig_")) return;
+      if(!o.parent) return;
+      victims.push(o);
+    });
+    for(const g of victims){
+      const parent = g.parent;
+      if(!parent) continue;
+      g.updateMatrix();
+      for(const c of g.children.slice()){
+        c.applyMatrix4(g.matrix);
+        parent.add(c);
+      }
+      parent.remove(g);
+      changed = true;
+    }
+  }
+  return root;
+}
+
+/* Sammelmaterialien: eines je (Oberflaechenart, Rauheit, Metallanteil).
+   Die eigentliche Farbe kommt aus den Vertexfarben der verschmolzenen
+   Geometrie — dadurch teilen sich zehn verschiedenfarbige Teile ein
+   Material statt zehn eigene zu brauchen. */
+const _vmats = new Map();
+function vertexMat(tex, rough, metal){
+  const key = tex + "|" + rough + "|" + metal;
+  let m = _vmats.get(key);
+  if(!m){
+    m = new THREE.MeshStandardMaterial({
+      color:0xFFFFFF, vertexColors:true, roughness:rough, metalness:metal });
+    if(tex !== "plain" && typeof applyTexSet === "function"){
+      const TUNE2 = { cloth:[1.2,0.45], leather:[1.0,0.55], metal:[1.0,0.50],
+                      woodN:[0.5,0.55], stoneN:[0.9,0.75] };
+      const t = TUNE2[tex] || [1, 1];
+      applyTexSet(m, tex, t[0], t[1]);
+    }
+    _vmats.set(key, m);
+  }
+  return m;
+}
+
+/** Kann ein Material im Sammelmaterial aufgehen? */
+function _mergeable(m){
+  // userData.tex tragen nur die Materialien aus mat() — Sonderfaelle
+  // wie die Trikotstreifen oder der leuchtende Kristall bleiben damit
+  // automatisch aussen vor.
+  return m && m.isMeshStandardMaterial && !m.transparent
+      && (!m.emissive || (m.emissive.r + m.emissive.g + m.emissive.b) < 0.001)
+      && m.userData && m.userData.tex !== undefined;
+}
+
+/** Verschmilzt Mesh-Geschwister gleicher Oberflaechenart unter jedem Gelenk. */
+function mergeStatic(root){
+  const groups = [];
+  root.traverse(o => { if(o.isGroup || o === root) groups.push(o); });
+  for(const g of groups){
+    const byMat = new Map();
+    for(const c of g.children){
+      if(!c.isMesh || c.isInstancedMesh) continue;
+      const m = c.material;
+      const key = _mergeable(m)
+        ? "v|" + m.userData.tex + "|" + m.userData.rough + "|" + m.userData.metal
+        : m.uuid;
+      if(!byMat.has(key)) byMat.set(key, []);
+      byMat.get(key).push(c);
+    }
+    for(const [key, list] of byMat){
+      if(list.length < 2) continue;
+      const geos = [];
+      let ok = true;
+      for(const m of list){
+        const gm = m.geometry.clone();
+        m.updateMatrix();
+        gm.applyMatrix4(m.matrix);
+        // Nur Position/Normale/UV behalten — sonst scheitert das
+        // Verschmelzen an unterschiedlichen Attributsätzen.
+        for(const name of Object.keys(gm.attributes))
+          if(name !== "position" && name !== "normal" && name !== "uv")
+            gm.deleteAttribute(name);
+        if(!gm.attributes.uv){ ok = false; break; }
+        geos.push(gm);
+      }
+      if(!ok) continue;
+      // mergeGeometries verlangt einheitliche Attribute: entweder ALLE
+      // indiziert oder KEINE. ExtrudeGeometry liefert nicht indiziert,
+      // die Grundkörper indiziert — gemischt scheitert es. Nur im
+      // Mischfall auflösen, sonst bläht sich die Geometrie unnötig auf.
+      const idx = geos.filter(g2 => g2.index).length;
+      if(idx > 0 && idx < geos.length)
+        for(let i = 0; i < geos.length; i++)
+          if(geos[i].index) geos[i] = geos[i].toNonIndexed();
+      const vertexColored = key.startsWith("v|");
+      if(vertexColored){
+        // Farbe jedes Teils in seine Geometrie backen
+        for(let i = 0; i < geos.length; i++){
+          const gm = geos[i], col = list[i].material.color;
+          const n = gm.attributes.position.count;
+          const arr = new Float32Array(n * 3);
+          for(let v = 0; v < n; v++){ arr[v*3] = col.r; arr[v*3+1] = col.g; arr[v*3+2] = col.b; }
+          gm.setAttribute("color", new THREE.BufferAttribute(arr, 3));
+        }
+      }
+      const merged = THREE.mergeGeometries(geos, false);
+      if(!merged) continue;
+      const useMat = vertexColored
+        ? vertexMat(list[0].material.userData.tex,
+                    list[0].material.userData.rough,
+                    list[0].material.userData.metal)
+        : list[0].material;
+      const mesh = new THREE.Mesh(merged, useMat);
+      mesh.castShadow = true;
+      for(const m of list) g.remove(m);
+      g.add(mesh);
+    }
+  }
+  return root;
+}
+
+const _protos = new Map();
+
 function buildModelFor(cardId, card){
+  let entry = _protos.get(cardId);
+  if(!entry){
+    const proto = _rawModel(cardId, card);
+    const rig = proto.userData.rig || {};
+    for(const k of RIG_KEYS)
+      if(rig[k] && rig[k].isObject3D) rig[k].name = "rig_" + k;
+    flattenNonRig(proto);
+    mergeStatic(proto);
+    // userData VOR dem Klonen leeren: Object3D.clone serialisiert
+    // userData über JSON — Verweise auf Gelenke würden das sprengen.
+    const plain = {};
+    for(const k in rig) if(!(rig[k] && rig[k].isObject3D)) plain[k] = rig[k];
+    proto.userData = {};
+    entry = { proto, plain, keys: RIG_KEYS.filter(k => rig[k] && rig[k].isObject3D) };
+    _protos.set(cardId, entry);
+  }
+  const inst = entry.proto.clone(true);
+  const rig = Object.assign({}, entry.plain);
+  for(const k of entry.keys) rig[k] = inst.getObjectByName("rig_" + k);
+  inst.userData.rig = rig;
+  return inst;
+}
+
+function _rawModel(cardId, card){
   if(cardId === "abdu")  return buildAbdu();
   if(cardId === "yunus") return buildYunus();
   if(cardId === "mertabi") return buildMertabi();

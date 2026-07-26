@@ -12,12 +12,14 @@
    ============================================================ */
 
 let scene, camera, renderer, groundPlane, raycaster, pointerNDC;
+let composer, aoPass, bloomPass, gradePass;
+const AO_SCALE = 0.5, BLOOM_SCALE = 0.6;
 let ready = false;
 
 const unitViews = new Map();     // Einheiten-ID -> { root, rig, bar, blob, ... }
 const towerViews = new Map();
 let effectViews = [];
-let aimRing = null, zoneMesh = null;
+let aimRing = null, zoneMesh = null, waterMat = null, gridHelper = null;
 
 const CAM = { tilt: 1.12, dist: 30, height: 25, look: 16.0 };
 
@@ -29,19 +31,22 @@ function initScene(canvas){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.22;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x16241F);
-  scene.fog = new THREE.Fog(0x16241F, 78, 122);
+  scene.fog = new THREE.Fog(0x1B2C24, 82, 130);
 
   camera = new THREE.PerspectiveCamera(38, 1, 1, 140);
 
-  scene.add(new THREE.HemisphereLight(0xCFE4F2, 0x4A5C42, 0.95));
+  // Himmelslicht: kuehl von oben, warm reflektiert vom Boden.
+  // Das ersetzt die fehlende Lichtstreuung und nimmt den Schatten
+  // ihre Tote-Ecke-Wirkung.
+  scene.add(new THREE.HemisphereLight(0xC6E0F4, 0x5E6B3E, 1.15));
 
-  const sun = new THREE.DirectionalLight(0xFFF4E2, 2.3);
+  const sun = new THREE.DirectionalLight(0xFFF0D2, 2.5);
   sun.position.set(-14, 30, 14);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -52,12 +57,18 @@ function initScene(canvas){
   sc.near = 1; sc.far = 90;
   sun.shadow.bias = -0.0012;
   sun.shadow.normalBias = 0.022;
+  sun.shadow.radius = 3.5;          // weiche Kante statt Treppenstufen
   sun.target.position.set(AW/2, 0, AH/2);
   scene.add(sun, sun.target);
 
-  const rim = new THREE.DirectionalLight(0x9CC0FF, 0.5);
-  rim.position.set(12, 10, 44);
+  // Aufheller von vorn unten: hebt die Figuren aus dem Hintergrund,
+  // ohne zweite Schatten zu werfen.
+  const rim = new THREE.DirectionalLight(0xA8C8FF, 0.55);
+  rim.position.set(12, 8, 44);
   scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xFFE6C0, 0.30);
+  fill.position.set(16, 6, -12);
+  scene.add(fill);
 
   buildEnvironment();
 
@@ -76,7 +87,88 @@ function initScene(canvas){
   aimRing.visible = false;
   scene.add(aimRing);
 
+  buildComposer();
   ready = true;
+}
+
+/* ---- Nachbearbeitung ------------------------------------------------
+   Die drei Stufen, die am meisten ausmachen:
+     1. Umgebungsverdeckung (GTAO) — dunkelt Berührungspunkte und
+        Vertiefungen ab. Ohne sie kleben Figuren auf dem Boden,
+        statt darin zu stehen. Das ist der groesste Billig-Faktor.
+     2. Bloom — laesst helle Stellen (Kristall, Metallglanz)
+        ueberstrahlen und gibt der Szene Tiefe.
+     3. Farbkorrektur — Kontrastkurve, kuehle Schatten gegen warme
+        Lichter, leichte Vignette. Ohne sie wirken die Farben flach.
+   Reihenfolge: Bild -> AO -> Bloom -> Tonwert/Farbraum -> Korrektur.
+--------------------------------------------------------------------- */
+const GradeShader = {
+  name: "Grade",
+  uniforms: {
+    tDiffuse:  { value: null },
+    uContrast: { value: 1.085 },
+    uSat:      { value: 1.12 },
+    uVignette: { value: 0.32 },
+    uLift:     { value: new THREE.Vector3(0.94, 0.98, 1.08) },
+    uGain:     { value: new THREE.Vector3(1.05, 1.01, 0.94) },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uContrast, uSat, uVignette;
+    uniform vec3 uLift, uGain;
+    varying vec2 vUv;
+    void main(){
+      vec4 src = texture2D(tDiffuse, vUv);
+      vec3 col = src.rgb;
+      col = (col - 0.5) * uContrast + 0.5;
+      float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = mix(col * uLift, col * uGain, smoothstep(0.12, 0.88, l));
+      col = mix(vec3(l), col, uSat);
+      vec2 d = vUv - 0.5;
+      col *= 1.0 - uVignette * dot(d, d) * 2.1;
+      gl_FragColor = vec4(clamp(col, 0.0, 1.0), src.a);
+    }`,
+};
+
+function buildComposer(){
+  const sz = new THREE.Vector2();
+  renderer.getSize(sz);
+  composer = new THREE.EffectComposer(renderer);
+  // Nachbearbeitung kostet Fuellrate. Auf hochaufloesenden Bildschirmen
+  // reicht 1.5-fach voellig; darueber sieht man keinen Unterschied mehr.
+  composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  composer.setSize(sz.x, sz.y);
+
+  composer.addPass(new THREE.RenderPass(scene, camera));
+
+  // Der AO-Durchgang ist mit Abstand der teuerste. Sein Schluss-Verbund
+  // rendert aber nur einen Vollbild-Quad und TASTET die AO-Textur ab —
+  // die darf also gröber sein. Halbe Auflösung kostet ein Viertel und
+  // ist bei weicher Verdeckung nicht zu unterscheiden.
+  aoPass = new THREE.GTAOPass(scene, camera, sz.x, sz.y);
+  aoPass.output = THREE.GTAOPass.OUTPUT.Default;
+  aoPass.updateGtaoMaterial({
+    radius: 0.55,            // Weltmass: etwa eine halbe Kachel
+    distanceExponent: 1.6,
+    thickness: 0.9,
+    scale: 1.0,
+    samples: 6,
+    screenSpaceRadius: false,
+  });
+  aoPass.blendIntensity = 0.95;
+  aoPass.setSize(sz.x * AO_SCALE, sz.y * AO_SCALE);
+  composer.addPass(aoPass);
+
+  bloomPass = new THREE.UnrealBloomPass(sz.clone().multiplyScalar(BLOOM_SCALE), 0.34, 0.8, 0.84);
+  composer.addPass(bloomPass);
+
+  composer.addPass(new THREE.OutputPass());
+
+  gradePass = new THREE.ShaderPass(GradeShader);
+  composer.addPass(gradePass);
 }
 
 /* ---- Umgebungsspiegelung ------------------------------------------
@@ -95,7 +187,7 @@ function buildEnvironment(){
     env.add(m);
     return m;
   };
-  panel(0xCBD3D6, 20, 20, 20, 0, 0, 0);                       // neutrale Kuppel
+  panel(0xBFD4E2, 20, 20, 20, 0, 0, 0);                       // Himmel
   const glow = (c, w, h, x, y, z, ry) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
       new THREE.MeshBasicMaterial({ color:c }));
@@ -113,80 +205,99 @@ function buildEnvironment(){
   // Wichtig: die Umgebung wirkt in Three als Licht auf JEDES Material,
   // nicht nur auf Metall. Bei voller Staerke faerbt sie Haut und Stoff
   // mit ein — deshalb deutlich heruntergeregelt.
-  scene.environmentIntensity = 0.38;
+  scene.environmentIntensity = 0.52;
   pmrem.dispose();
 }
 
-/* ---- Bodenstruktur -------------------------------------------------
-   Eine gleichmaessig gruene Flaeche wirkt wie Filz. Ein bisschen
-   Rauschen und ein paar hellere Buendel geben ihr Tiefe.          */
-function grassTexture(base, spots){
-  const c = document.createElement("canvas");
-  c.width = c.height = 256;
-  const g = c.getContext("2d");
-  g.fillStyle = base;
-  g.fillRect(0, 0, 256, 256);
-  for(let i = 0; i < 2600; i++){
-    const x = Math.random()*256, y = Math.random()*256;
-    const l = (Math.random()-0.5) * 26;
-    g.fillStyle = `rgba(${l>0?255:0},${l>0?255:0},${l>0?200:0},${Math.abs(l)/150})`;
-    g.fillRect(x, y, 2.2, 1.2);
-  }
-  for(let i = 0; i < spots; i++){
-    const x = Math.random()*256, y = Math.random()*256;
-    const r = 6 + Math.random()*16;
-    const grd = g.createRadialGradient(x, y, 0, x, y, r);
-    grd.addColorStop(0, "rgba(255,255,210,0.10)");
-    grd.addColorStop(1, "rgba(255,255,210,0)");
-    g.fillStyle = grd;
-    g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill();
-  }
-  const t = new THREE.CanvasTexture(c);
-  // Ohne diese Zeile behandelt Three die Textur als linear und der
-  // Rasen wirkt ausgewaschen.
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(6, 10);
-  return t;
+/* ---- Bodenmaterial --------------------------------------------------
+   Statt einer einzelnen Farbfläche mit Rauschen jetzt ein voller
+   PBR-Satz aus textures.js: Farbe, Relief und Rauheit. Die Kachelung
+   wird getrennt gesetzt, damit die Halme auf 18x32 Kacheln nicht
+   zu Streifen gezogen werden.                                     */
+function groundMaterial(kind, tint, repX, repY, normalScale){
+  const set = texSet(kind);
+  const dup = t => {
+    if(!t) return null;
+    const c = t.clone(); c.needsUpdate = true;
+    c.wrapS = c.wrapT = THREE.RepeatWrapping;
+    c.repeat.set(repX, repY);
+    c.anisotropy = 8;
+    return c;
+  };
+  return new THREE.MeshStandardMaterial({
+    color: tint,
+    map: dup(set.map),
+    normalMap: dup(set.normalMap),
+    roughnessMap: dup(set.roughnessMap),
+    normalScale: new THREE.Vector2(normalScale, normalScale),
+    roughness: 1.0, metalness: 0.0,
+  });
 }
 
 /* ---- Arena ------------------------------------------------------- */
 function buildArena(){
   const half = { x: AW/2, z: AH/2 };
 
-  const grass = grassTexture("#5F8C52", 60);
-  const groundMat = (c, textured) => new THREE.MeshStandardMaterial({
-    color:c, roughness:0.97, metalness:0.0, map: textured ? grass : null });
-  const mk = (w, d, x, z, c, y) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d), groundMat(c, true));
-    m.position.set(x, (y||0) - 0.2, z);
+  const mk = (w, d, x, z, tint) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d),
+                             groundMaterial("grass", tint, w/3.4, d/3.4, 1.6));
+    m.position.set(x, -0.2, z);
     m.receiveShadow = true;
     scene.add(m);
     return m;
   };
 
   // Zwei Spielfeldhälften, leicht unterschiedlich, damit die Mitte lesbar ist
-  mk(AW, RIVER.y0,        half.x, RIVER.y0/2,                 0xBFCFB2);
-  mk(AW, AH - RIVER.y1,   half.x, RIVER.y1 + (AH-RIVER.y1)/2, 0xC9D9BB);
+  mk(AW, RIVER.y0,        half.x, RIVER.y0/2,                 0xFFFFFF);
+  mk(AW, AH - RIVER.y1,   half.x, RIVER.y1 + (AH-RIVER.y1)/2, 0xF2F6EC);
 
   // Fluss: tiefer gelegt, damit die Böschung Schatten wirft
   const river = new THREE.Mesh(
     new THREE.BoxGeometry(AW, 0.34, RIVER.y1 - RIVER.y0),
-    new THREE.MeshStandardMaterial({ color:0x2A7C99, roughness:0.06, metalness:0.55 }));
+    groundMaterial("water", 0x8FB6C6, 5, 1.2, 1.1));
+  // Rauheit nicht zu niedrig: bei einer fast spiegelnden Oberflaeche
+  // wirft die Umgebungskulisse ihre Sonnenflaeche als hartes Rechteck
+  // zurueck. 0.34 streut sie zu einem weichen Glanz.
+  river.material.metalness = 0.22;
+  river.material.roughness = 0.34;
   river.position.set(half.x, -0.30, (RIVER.y0 + RIVER.y1)/2);
   scene.add(river);
+  waterMat = river.material;
+
+  // Uferschaum: heller Saum, wo Wasser auf Erde trifft. Ohne ihn
+  // stossen zwei Flaechen mit einer messerscharfen Kante aneinander.
+  const foamMat = new THREE.MeshBasicMaterial({
+    color:0xE6F4F8, transparent:true, opacity:0.17, depthWrite:false,
+    alphaMap: decalAlpha("band"), blending:THREE.NormalBlending });
+  for(const z of [RIVER.y0 + 0.16, RIVER.y1 - 0.16]){
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(AW, 0.40), foamMat);
+    f.rotation.x = -Math.PI/2;
+    f.position.set(half.x, -0.115, z);
+    scene.add(f);
+  }
+
+  // Uferzone: schmaler Erdstreifen, damit Wiese und Wasser nicht
+  // mit einer harten Kante aneinanderstoßen
+  for(const [z, d] of [[RIVER.y0 - 0.34, 0.7], [RIVER.y1 + 0.34, 0.7]]){
+    const bank = new THREE.Mesh(new THREE.BoxGeometry(AW, 0.42, d),
+                                groundMaterial("dirt", 0xFFFFFF, AW/2.4, 0.5, 1.6));
+    bank.position.set(half.x, -0.19, z);
+    bank.receiveShadow = true;
+    scene.add(bank);
+  }
 
   // Brücken mit Geländerpfosten
   for(const bx of BRIDGES){
     const b = new THREE.Mesh(
       new THREE.BoxGeometry(BRIDGE_HALF*2, 0.22, RIVER.y1 - RIVER.y0 + 0.9),
-      groundMat(0x7A6045));
+      groundMaterial("wood", 0xFFFFFF, 1.4, 2.4, 1.7));
     b.position.set(bx, 0.02, (RIVER.y0 + RIVER.y1)/2);
     b.castShadow = true; b.receiveShadow = true;
     scene.add(b);
     for(const sx of [-1, 1]){
       for(let i = 0; i < 4; i++){
-        const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.12), groundMat(0x5C4632));
+        const p = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.12),
+                                 groundMaterial("wood", 0xCCCCCC, 1, 1, 1.2));
         p.position.set(bx + sx*(BRIDGE_HALF - 0.08), 0.22,
                        RIVER.y0 - 0.35 + i * ((RIVER.y1 - RIVER.y0 + 0.7) / 3));
         p.castShadow = true;
@@ -197,7 +308,7 @@ function buildArena(){
 
   // Rasterlinien, dezent, als Orientierung beim Platzieren
   const grid = new THREE.Group();
-  const lineMat = new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0.045 });
+  const lineMat = new THREE.MeshBasicMaterial({ color:0xFFFFFF, transparent:true, opacity:0.022 });
   for(let i = 1; i < AW; i++){
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.03, AH), lineMat);
     m.rotation.x = -Math.PI/2; m.position.set(i, 0.03, half.z); grid.add(m);
@@ -206,6 +317,8 @@ function buildArena(){
     const m = new THREE.Mesh(new THREE.PlaneGeometry(AW, 0.03), lineMat);
     m.rotation.x = -Math.PI/2; m.position.set(half.x, 0.03, i); grid.add(m);
   }
+  grid.visible = false;          // nur beim Platzieren sichtbar
+  gridHelper = grid;
   scene.add(grid);
 
   // Platzierungszone (wird beim Kartenwählen eingeblendet)
@@ -216,13 +329,202 @@ function buildArena(){
   zoneMesh.visible = false;
   scene.add(zoneMesh);
 
+  dressScene();
+
   // Bande rundherum
   for(const [w, d, x, z] of [[AW+1.2, 0.6, AW/2, -0.5], [AW+1.2, 0.6, AW/2, AH+0.5],
                              [0.6, AH+1.2, -0.5, AH/2], [0.6, AH+1.2, AW+0.5, AH/2]]){
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, d), groundMat(0x24352B));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, 1.0, d),
+                             groundMaterial("stone", 0x9AA894, w/2, d/2, 1.4));
     m.position.set(x, 0.1, z);
     scene.add(m);
   }
+}
+
+/* ---- Bewuchs und Ausstattung ---------------------------------------
+   Große leere Flächen sind der dritte Billig-Faktor. Grasbüschel,
+   Steine, Blumen und Erdflecken brechen sie auf.
+
+   Alles über InstancedMesh: 900 Büschel kosten damit einen einzigen
+   Zeichenaufruf statt 900. Ohne das wäre der Aufwand nicht vertretbar.
+--------------------------------------------------------------------- */
+function _rand(seed){
+  let s = seed >>> 0;
+  return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+/** Frei? Nicht im Fluss, nicht unter einem Turm, nicht auf der Brücke. */
+function _freeSpot(x, y){
+  if(x < 0.7 || x > AW - 0.7 || y < 0.7 || y > AH - 0.7) return false;
+  if(y > RIVER.y0 - 1.0 && y < RIVER.y1 + 1.0) return false;
+  for(const t of TOWER_SPOTS)
+    if(Math.hypot(x - t.x, y - t.y) < (t.kind === "king" ? 2.6 : 2.2)) return false;
+  return true;
+}
+
+function dressScene(){
+  const rnd = _rand(20260726);
+  const dummy = new THREE.Object3D();
+
+  /* --- Bodenaufdrucke: ausgetretene Erde, weich auslaufend --------- */
+  const decalMat = (kind, rep, opacity) => {
+    const m = groundMaterial("dirt", 0xFFFFFF, rep, rep, 1.3);
+    m.alphaMap = decalAlpha(kind);
+    m.transparent = true;
+    m.opacity = opacity;
+    m.depthWrite = false;
+    m.polygonOffset = true;          // gegen Z-Flimmern mit dem Boden
+    m.polygonOffsetFactor = -2;
+    return m;
+  };
+  const patchMat = decalMat("patch", 2, 0.9);
+  const pathMat  = decalMat("path", 2, 0.72);
+
+  for(const t of TOWER_SPOTS){
+    const r = t.kind === "king" ? 2.6 : 2.1;
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(r*2, r*2), patchMat);
+    p.rotation.x = -Math.PI/2;
+    p.position.set(t.x, 0.012, t.y);
+    p.receiveShadow = true;
+    scene.add(p);
+  }
+
+  /* --- Trampelpfade zu den Brücken --- */
+  for(const bx of BRIDGES){
+    for(const [z, h] of [[RIVER.y0 - 2.4, 4.4], [RIVER.y1 + 2.4, 4.4]]){
+      const path = new THREE.Mesh(new THREE.PlaneGeometry(1.7, h), pathMat);
+      path.rotation.x = -Math.PI/2;
+      path.position.set(bx, 0.010, z);
+      scene.add(path);
+    }
+  }
+
+  /* --- Grosse weiche Farbflecken ------------------------------------
+     Die Rasentextur wiederholt sich ueber 18x32 Kacheln sichtbar.
+     Ein paar grosse, unterschiedlich getoente Flecken darueber
+     brechen das Muster auf, ohne neue Texturen zu kosten.         */
+  const shadeAlpha = decalAlpha("patch");
+  for(let i = 0; i < 11; i++){
+    const x = rnd() * AW, y = rnd() * AH;
+    if(y > RIVER.y0 - 0.6 && y < RIVER.y1 + 0.6) continue;
+    const r = 2.4 + rnd() * 3.6;
+    const m = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.24 + rnd()*0.07, 0.30 + rnd()*0.2, 0.28 + rnd()*0.22),
+      transparent:true, opacity:0.07 + rnd()*0.09, depthWrite:false,
+      alphaMap: shadeAlpha, blending:THREE.NormalBlending });
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(r*2, r*2), m);
+    p.rotation.x = -Math.PI/2;
+    p.rotation.z = rnd() * 6.28;
+    p.position.set(x, 0.008, y);
+    scene.add(p);
+  }
+
+  /* --- Grasbüschel --- */
+  const bladeGeo = new THREE.ConeGeometry(0.030, 0.34, 3, 1, true);
+  bladeGeo.translate(0, 0.17, 0);
+  const bladeMat = new THREE.MeshStandardMaterial({
+    color:0x63914C, roughness:1.0, metalness:0, side:THREE.DoubleSide });
+  const N_BLADE = 900;
+  const blades = new THREE.InstancedMesh(bladeGeo, bladeMat, N_BLADE);
+  blades.castShadow = false; blades.receiveShadow = false;
+  let n = 0, guard = 0;
+  const tint = new THREE.Color();
+  while(n < N_BLADE && guard++ < N_BLADE * 6){
+    const x = rnd() * AW, y = rnd() * AH;
+    if(!_freeSpot(x, y)) continue;
+    const s2 = 0.6 + rnd() * 0.85;
+    dummy.position.set(x, 0, y);
+    dummy.rotation.set((rnd()-0.5) * 0.35, rnd() * 6.28, (rnd()-0.5) * 0.35);
+    dummy.scale.set(s2, s2 * (0.7 + rnd() * 0.9), s2);
+    dummy.updateMatrix();
+    blades.setMatrixAt(n, dummy.matrix);
+    tint.setHSL(0.23 + rnd() * 0.05, 0.20 + rnd() * 0.16, 0.26 + rnd() * 0.14);
+    blades.setColorAt(n, tint);
+    n++;
+  }
+  blades.count = n;
+  blades.instanceMatrix.needsUpdate = true;
+  if(blades.instanceColor) blades.instanceColor.needsUpdate = true;
+  scene.add(blades);
+
+  /* --- Steine --- */
+  const rockGeo = new THREE.SphereGeometry(0.5, 6, 4);
+  const rockMat = new THREE.MeshStandardMaterial({ color:0x8C8880, roughness:0.92, metalness:0.02 });
+  if(typeof applyTexSet === "function") applyTexSet(rockMat, "stoneN", 1.5, 1.2);
+  const N_ROCK = 46;
+  const rocks = new THREE.InstancedMesh(rockGeo, rockMat, N_ROCK);
+  rocks.castShadow = true; rocks.receiveShadow = true;
+  n = 0; guard = 0;
+  while(n < N_ROCK && guard++ < N_ROCK * 20){
+    const x = rnd() * AW, y = rnd() * AH;
+    if(!_freeSpot(x, y)) continue;
+    const s2 = 0.13 + rnd() * 0.20;
+    dummy.position.set(x, s2 * 0.34, y);
+    dummy.rotation.set(rnd()*6.28, rnd()*6.28, rnd()*6.28);
+    dummy.scale.set(s2, s2 * (0.5 + rnd()*0.4), s2 * (0.8 + rnd()*0.5));
+    dummy.updateMatrix();
+    rocks.setMatrixAt(n, dummy.matrix);
+    tint.setHSL(0.09, 0.05 + rnd()*0.06, 0.42 + rnd()*0.22);
+    rocks.setColorAt(n, tint);
+    n++;
+  }
+  rocks.count = n;
+  rocks.instanceMatrix.needsUpdate = true;
+  if(rocks.instanceColor) rocks.instanceColor.needsUpdate = true;
+  scene.add(rocks);
+
+  /* --- Blüten: kleine Farbtupfer gegen die Eintönigkeit --- */
+  const flowerGeo = new THREE.SphereGeometry(0.055, 6, 4);
+  const flowerMat = new THREE.MeshStandardMaterial({ color:0xFFFFFF, roughness:0.7 });
+  const N_FLOWER = 130;
+  const flowers = new THREE.InstancedMesh(flowerGeo, flowerMat, N_FLOWER);
+  n = 0; guard = 0;
+  const palette = [0xF2E37A, 0xE8F0F4, 0xE0A0C8, 0xF0B060];
+  while(n < N_FLOWER && guard++ < N_FLOWER * 20){
+    const x = rnd() * AW, y = rnd() * AH;
+    if(!_freeSpot(x, y)) continue;
+    dummy.position.set(x, 0.10 + rnd() * 0.06, y);
+    dummy.rotation.set(0, rnd() * 6.28, 0);
+    const s2 = 0.7 + rnd() * 0.7;
+    dummy.scale.set(s2, s2 * 0.6, s2);
+    dummy.updateMatrix();
+    flowers.setMatrixAt(n, dummy.matrix);
+    tint.setHex(palette[(rnd() * palette.length) | 0]);
+    flowers.setColorAt(n, tint);
+    n++;
+  }
+  flowers.count = n;
+  flowers.instanceMatrix.needsUpdate = true;
+  if(flowers.instanceColor) flowers.instanceColor.needsUpdate = true;
+  scene.add(flowers);
+
+  /* --- Schilf am Ufer --- */
+  const reedGeo = new THREE.ConeGeometry(0.022, 0.58, 3, 1, true);
+  reedGeo.translate(0, 0.275, 0);
+  const reedMat = new THREE.MeshStandardMaterial({
+    color:0x7C8A4A, roughness:0.95, side:THREE.DoubleSide });
+  const N_REED = 160;
+  const reeds = new THREE.InstancedMesh(reedGeo, reedMat, N_REED);
+  n = 0;
+  for(let i = 0; i < N_REED; i++){
+    const x = 0.6 + rnd() * (AW - 1.2);
+    if(BRIDGES.some(bx => Math.abs(x - bx) < BRIDGE_HALF + 0.5)) continue;
+    const side = rnd() < 0.5 ? -1 : 1;
+    const y = side < 0 ? RIVER.y0 - 0.25 - rnd() * 0.55 : RIVER.y1 + 0.25 + rnd() * 0.55;
+    const s2 = 0.7 + rnd() * 0.8;
+    dummy.position.set(x, 0, y);
+    dummy.rotation.set((rnd()-0.5) * 0.4, rnd() * 6.28, (rnd()-0.5) * 0.4);
+    dummy.scale.set(s2, s2 * (0.8 + rnd() * 0.8), s2);
+    dummy.updateMatrix();
+    reeds.setMatrixAt(n, dummy.matrix);
+    tint.setHSL(0.16 + rnd() * 0.06, 0.22 + rnd() * 0.16, 0.26 + rnd() * 0.14);
+    reeds.setColorAt(n, tint);
+    n++;
+  }
+  reeds.count = n;
+  reeds.instanceMatrix.needsUpdate = true;
+  if(reeds.instanceColor) reeds.instanceColor.needsUpdate = true;
+  scene.add(reeds);
 }
 
 /* ---- Balken und Schatten ---------------------------------------- */
@@ -436,9 +738,17 @@ function draw(dt){
     }
   }
 
+  // Wasser bewegen: die beiden Karten unterschiedlich schnell versetzen,
+  // dadurch entsteht Stroemung statt einer starren Flaeche.
+  if(waterMat){
+    const t = animClock;
+    if(waterMat.map)       waterMat.map.offset.set(t * 0.012, t * 0.030);
+    if(waterMat.normalMap) waterMat.normalMap.offset.set(-t * 0.019, t * 0.043);
+  }
+
   drawEffects(dt || 0.016);
   drawAim();
-  renderer.render(scene, camera);
+  if(composer) composer.render(); else renderer.render(scene, camera);
 }
 
 /* ---- Bewegungsablauf -------------------------------------------- */
@@ -516,6 +826,7 @@ function drawEffects(dt){
 function drawAim(){
   const card = W.selected >= 0 ? CARDS[W.blue.hand[W.selected]] : null;
 
+  if(gridHelper) gridHelper.visible = !!card && !W.over;
   if(card && card.kind !== "spell" && !W.over){
     const y0 = RIVER.y1 + 0.2, y1 = AH;
     zoneMesh.visible = true;
@@ -543,6 +854,11 @@ function resize(){
   const r = renderer.domElement.getBoundingClientRect();
   if(r.width < 2 || r.height < 2) return;
   renderer.setSize(r.width, r.height, false);
+  if(composer){
+    composer.setSize(r.width, r.height);
+    if(aoPass) aoPass.setSize(r.width * AO_SCALE, r.height * AO_SCALE);
+    if(bloomPass) bloomPass.setSize(r.width * BLOOM_SCALE, r.height * BLOOM_SCALE);
+  }
   camera.aspect = r.width / r.height;
 
   // Bildausschnitt an das Seitenverhältnis anpassen: Bei schmalen
