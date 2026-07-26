@@ -406,6 +406,24 @@ const CARDS = {
     hp:3800, damage:240, hitSpeed:1.8, range:1.3, speed:0.65,
     layer:"ground", targets:"ground", radius:0.62 },
 
+  /* Azizis · Schwarm · fünf Schwertkämpfer mit Schild
+     Schließt die letzte Roster-Lücke: einen Schwarm aus mehreren
+     eigenen Einheiten auf einer Karte. Schwärme sind stark gegen
+     einzelne dicke Ziele (fünf Klingen zerlegen einen Tank), zahlen
+     das aber teuer:
+       · Flächenschaden (Mertabi, Feuermagier, Feuerball, Splitterregen)
+         trifft alle fünf auf einmal und löscht die Karte fast umsonst
+       · nur Boden — gegen Luft völlig wehrlos
+       · Nahkampf — Fernkämpfer treten sie aus der Distanz aus
+     Das Schild macht sie pro Kopf zäher als die Straßenbande (Messer,
+     kein Schild): 240 statt 220 HP, dafür kosten sie mehr.
+     Gesamt-DPS bewusst hoch (fünf mal 84), Gesamt-HP moderat — sie
+     leben von der Menge, nicht vom einzelnen Körper.                 */
+  azizis:{ name:"Azizis", emoji:"⚔️", card:"assets/cards/azizis.jpg",
+    cost:4, kind:"troop", count:5,
+    hp:240, damage:92, hitSpeed:1.1, range:1.2, speed:1.4,
+    layer:"ground", targets:"ground", radius:0.30 },
+
   /* --- Nahkampf & Tanks --- */
   steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
     hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
@@ -457,15 +475,19 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
+// Azizis ist der eigene Schwarm und nimmt in beiden Decks den
+// Schwarm-Platz ein — beim Spieler statt der Strassenbande, beim Gegner
+// statt des Rattenrudels. Damit spielen beide Seiten alle fuenf eigenen
+// Charaktere (Abdu, Yunus, Mertabi, Timgioh, Azizis).
 const DECK_BLUE = ["abdu","yunus","mertabi","timgioh",
-                   "strassenbande","fledermausschwarm","feuerball","speerturm"];
+                   "azizis","fledermausschwarm","feuerball","speerturm"];
 // Der Gegner spielt dieselben eigenen Charaktere wie du — sonst waeren
-// sie nur Deko im Spielerdeck. Die uebrigen vier Plaetze sind bewusst
+// sie nur Deko im Spielerdeck. Die uebrigen drei Plaetze sind bewusst
 // anders besetzt als in DECK_BLUE, damit sich die Partien unterscheiden:
-// Rammbock als Siegbedingung, Rattenrudel als Schwarm, Splitterregen
-// als Zauber, Sturmfalke als Lufteinheit.
+// Rammbock als Siegbedingung, Splitterregen als Zauber, Sturmfalke als
+// Lufteinheit.
 const DECK_RED  = ["abdu","yunus","mertabi","timgioh",
-                   "rattenrudel","rammbock","splitterregen","sturmfalke"];
+                   "azizis","rammbock","splitterregen","sturmfalke"];
 
 /* interval  = Sekunden zwischen zwei Entscheidungen (Reaktionszeit)
    savings   = ab wie viel Elixier die KI zum Angriff übergeht.

@@ -987,6 +987,167 @@ function accentOf(cardId){
   return new THREE.Color().setHSL((h % 360) / 360, 0.4, 0.48).getHex();
 }
 
+/* ============================================================
+   AZIZIS — Schwarm aus fünf jungen Schwertkämpfern
+
+   Übernommen vom Referenzblatt: rundlicher, fröhlicher Junge, blaue
+   Wappenrock-Tunika über weißem Hemd, goldener Knopf auf der Brust,
+   brauner Gürtel mit Goldschnalle, kurzes Schwert mit Goldparier und
+   goldenes Heaterschild. Kräftige schwarze Lockenmähne.
+
+   Klein gebaut (Höhe ~1.2): fünf davon stehen gleichzeitig auf dem
+   Feld, jeder darf also nur einen Bruchteil eines Helden an Dreiecken
+   kosten. Das Schwert sitzt am rechten Arm (armR), damit der
+   Angriffsschwung des Renderers es nach unten durchzieht.
+   ============================================================ */
+const AZI = { tunic:0x2E5FC4, tunicDk:0x21469A, shirt:0xEDEFF2,
+              trouser:0x2C3542, belt:0x5B3A24, boot:0x4E3620,
+              glove:0x6B4527, gold:0xCBA23C, goldDk:0x8F6E22,
+              hair:0x140F0A };
+
+function buildAzizi(){
+  const root = new THREE.Group();
+  const s = 0.86;
+  const hips = joint(0, 0.46*s, 0);
+  root.add(hips);
+
+  /* --- Beine: kurz und stämmig, dunkle Hose, brauner Stiefel ------ */
+  const boot = lathe("aziboot", [
+    [0.00, 0.00], [0.088, 0.006], [0.098, 0.05], [0.086, 0.10],
+    [0.070, 0.14], [0.00, 0.15],
+  ]);
+  const leg = side => {
+    const j = joint(0.098*s*side, 0, 0);
+    j.add(part(capsule(0.076*s, 0.10*s, 12), cloth(AZI.trouser), 0, -0.10*s, 0));
+    const b = part(boot, cloth(AZI.boot), 0, -0.235*s, 0.01*s);
+    b.scale.set(s*1.05, s, s*1.55);
+    j.add(b);
+    return j;
+  };
+  const legL = leg(-1), legR = leg(1);
+  hips.add(legL, legR);
+
+  /* --- Rumpf: rundlich, blaue Tunika über weißem Hemd ------------- */
+  const torso = joint(0, 0.03*s, 0);
+  hips.add(torso);
+  // Bauchiges Drehprofil — bewusst breiter als bei den Helden.
+  const tunic = part(lathe("azitorso", [
+    [0.000, 0.00], [0.150, 0.01], [0.168, 0.09], [0.176, 0.19],
+    [0.166, 0.28], [0.130, 0.35], [0.000, 0.36],
+  ], 20), cloth(AZI.tunic), 0, 0, 0);
+  tunic.scale.set(s, s, s*0.9);
+  torso.add(tunic);
+
+  // Weißes Hemd: ein Keil am Halsausschnitt, der vorn hervorschaut
+  const shirtV = part(spike(0.072*s, 0.14*s, 3), cloth(AZI.shirt), 0, 0.30*s, 0.115*s);
+  shirtV.rotation.x = Math.PI;                 // Spitze nach unten
+  torso.add(shirtV);
+  // Kragen ringsum, damit der Hals nicht nackt aus der Tunika ragt
+  const collar = part(ring(0.088*s, 0.020*s, 16), cloth(AZI.shirt), 0, 0.335*s, 0);
+  collar.rotation.x = Math.PI/2; collar.scale.set(1.05, 1, 0.9);
+  torso.add(collar);
+
+  // Goldknopf auf der Brust
+  const stud = part(ball(0.030*s, 14), metal(AZI.gold, 0.3), 0, 0.20*s, 0.150*s);
+  stud.scale.set(1, 1, 0.6);
+  torso.add(stud);
+
+  // Gürtel mit Goldschnalle
+  const belt = part(ring(0.158*s, 0.026*s, 18), hide(AZI.belt), 0, 0.03*s, 0);
+  belt.rotation.x = Math.PI/2; belt.scale.set(1.02, 1, 0.9);
+  torso.add(belt);
+  torso.add(part(box(0.058*s, 0.052*s, 0.04*s), metal(AZI.gold, 0.32), 0, 0.03*s, 0.150*s));
+
+  /* --- Arme: kurzer blauer Ärmel, Haut, brauner Handschuh -------- */
+  const arm = side => {
+    const j = joint(0.185*s*side, 0.30*s, 0);
+    j.add(part(capsule(0.070*s, 0.05*s, 12), cloth(AZI.tunic), 0, -0.045*s, 0)); // Ärmel
+    j.add(part(capsule(0.050*s, 0.11*s, 12), skin(PAL.skin), 0, -0.15*s, 0));    // Unterarm
+    const hand = part(ball(0.058*s, 12), hide(AZI.glove), 0, -0.25*s, 0);        // Handschuh
+    hand.scale.set(0.9, 1.05, 1.0);
+    j.add(hand);
+    return j;
+  };
+  const armL = arm(-1), armR = arm(1);
+  torso.add(armL, armR);
+
+  /* --- Schwert in der rechten Hand -------------------------------
+     Die Klinge wird am Handgelenk noch etwas aufgestellt (rotation.x),
+     damit sie aus der Vogelperspektive nach vorn-oben heraussteht statt
+     in der Verlängerung des Arms zu verschwinden. */
+  const sword = joint(0, -0.25*s, 0.02*s);
+  sword.rotation.x = -0.55;
+  armR.add(sword);
+  sword.add(part(box(0.032*s, 0.46*s, 0.013*s), metal(PAL.steelLite, 0.22), 0, 0.27*s, 0));  // Klinge
+  sword.add(part(spike(0.028*s, 0.07*s, 4), metal(PAL.steelLite, 0.22), 0, 0.53*s, 0));       // Spitze
+  sword.add(part(box(0.12*s, 0.028*s, 0.03*s), metal(AZI.gold, 0.3), 0, 0.035*s, 0));          // Parier
+  sword.add(part(capsule(0.020*s, 0.06*s, 10), hide(AZI.belt), 0, -0.02*s, 0));                // Griff
+  sword.add(part(ball(0.028*s, 12), metal(AZI.gold, 0.3), 0, -0.065*s, 0));                    // Knauf
+
+  /* --- Heaterschild in der linken Hand --------------------------- */
+  const shield = joint(0, -0.24*s, 0.05*s);
+  armL.add(shield);
+  shield.rotation.x = -0.35;                    // leicht nach vorn gekippt
+  // Schildkörper: oben breit, unten spitz. Rundbox plus Kegelspitze.
+  const face = part(box(0.20*s, 0.24*s, 0.05*s), metal(AZI.gold, 0.34), 0, 0.03*s, 0);
+  shield.add(face);
+  const tip = part(spike(0.115*s, 0.12*s, 4), metal(AZI.gold, 0.34), 0, -0.15*s, 0);
+  tip.rotation.x = Math.PI;                      // Spitze nach unten
+  tip.scale.set(1, 1, 0.42);
+  shield.add(tip);
+  // Dunklerer Rand und ein Buckel in der Mitte, damit es nicht flach wirkt
+  shield.add(part(ring(0.105*s, 0.014*s, 4), metal(AZI.goldDk, 0.4), 0, 0.03*s, 0.028*s));
+  shield.add(part(ball(0.034*s, 12), metal(AZI.goldDk, 0.36), 0, 0.03*s, 0.05*s));
+
+  /* --- Kopf: rund, große Locken, breites Lachen ------------------ */
+  torso.add(part(tube(0.052*s, 0.062*s, 0.05*s, 12), skin(PAL.skinDark), 0, 0.375*s, 0)); // Hals
+  const head = joint(0, 0.47*s, 0);
+  torso.add(head);
+
+  const skull = part(ball(0.135*s, 20), skin(PAL.skin), 0, 0.01*s, 0);
+  skull.scale.set(1.0, 1.02, 0.98);
+  head.add(skull);
+  head.add(part(ball(0.015*s, 10), skin(PAL.skin), 0, -0.018*s, 0.135*s));                  // Nase
+
+  // Breites Lachen: dunkler Bogen plus weiße Zahnreihe
+  head.add(part(box(0.070*s, 0.020*s, 0.02*s), cloth(0x3A241A), 0, -0.060*s, 0.120*s));
+  head.add(part(box(0.058*s, 0.012*s, 0.02*s), cloth(0xF4F0E7), 0, -0.052*s, 0.126*s));
+  for(const ex of [-0.050, 0.050]){
+    head.add(part(ball(0.019*s, 12), mat(0xF4F0E7, { roughness:0.35 }), ex*s, 0.028*s, 0.112*s));
+    head.add(part(ball(0.010*s, 10), mat(0x2C1B12, { roughness:0.3 }), ex*s, 0.028*s, 0.124*s));
+    const brow = part(box(0.044*s, 0.015*s, 0.02*s), cloth(AZI.hair), ex*s, 0.070*s, 0.118*s);
+    brow.rotation.z = ex > 0 ? -0.16 : 0.16;
+    head.add(brow);
+  }
+
+  /* --- Lockenmähne: Traube aus vielen kleinen Kugeln ------------- */
+  const hairMat = cloth(AZI.hair);
+  const curls = [
+    [0.00, 0.16, -0.02, 1.15], [-0.09, 0.145, 0.01, 0.9], [0.09, 0.145, 0.01, 0.9],
+    [-0.13, 0.09, -0.02, 0.85], [0.13, 0.09, -0.02, 0.85],
+    [0.00, 0.12, -0.11, 1.0], [-0.08, 0.10, -0.11, 0.85], [0.08, 0.10, -0.11, 0.85],
+    [-0.12, 0.04, -0.09, 0.8], [0.12, 0.04, -0.09, 0.8],
+    [-0.055, 0.155, 0.075, 0.7], [0.055, 0.155, 0.075, 0.7],
+    [0.00, 0.175, 0.03, 0.85],
+  ];
+  for(const [cx, cy, cz, cr] of curls){
+    const curl = part(ball(0.062*s*cr, 12), hairMat, cx*s, cy*s, cz*s);
+    curl.scale.setScalar(1 + 0.06*cr);
+    head.add(curl);
+  }
+  // Koteletten-Ansatz an den Schläfen
+  for(const sx of [-1, 1]){
+    const t = part(ball(0.050*s, 12), hairMat, 0.118*s*sx, 0.03*s, 0.03*s);
+    t.scale.set(0.5, 0.8, 0.9);
+    head.add(t);
+  }
+
+  // Grundstellung: rechter Arm hebt das Schwert, linker hält das Schild vor.
+  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop:sword,
+                        poseL:-0.62, poseR:-1.15, height:1.2*s };
+  return root;
+}
+
 /** Läufer: gemeinsames Gerüst für Nahkämpfer, Schützen und Schwärme. */
 function buildWalker(card, cardId){
   const root = new THREE.Group();
@@ -1422,6 +1583,7 @@ function _rawModel(cardId, card){
   if(cardId === "yunus") return buildYunus();
   if(cardId === "mertabi") return buildMertabi();
   if(cardId === "timgioh") return buildTimgioh();
+  if(cardId === "azizis") return buildAzizi();
   if(card.kind === "building") return buildStructure(card, cardId);
   if(card.layer === "air") return buildFlyer(card, cardId);
   return buildWalker(card, cardId);

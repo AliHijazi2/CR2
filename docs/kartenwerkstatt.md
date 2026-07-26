@@ -246,16 +246,17 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 | Tank / Frontlinie | 2–3 | 2 | ✅ Abdu, Timgioh |
 | Einzelziel-Schaden | 3–4 | 2 | 🔸 Abdu, Yunus |
 | Flächenschaden | 2–3 | 1 | 🔸 Mertabi |
-| Schwarm | 2–3 | 0 | ❌ |
+| Schwarm | 2–3 | 1 | 🔸 Azizis |
 | Kann Luftziele treffen | ≥ 4 | 2 | 🔸 Yunus, Mertabi |
 | Lufteinheiten | 2–3 | 0 | ❌ |
 | Siegbedingung (nur Gebäude) | 1–2 | 0 | ❌ |
 | Zauber | 2–4 | 0 | ❌ |
 | Defensivgebäude | 1–2 | 0 | ❌ |
 
-**Dringendste Lücke:** ein **Schwarm** — mehrere billige Einheiten auf einer
-Karte. Ohne ihn fehlt die Antwort auf einzelne dicke Angreifer, und das
-Schere-Stein-Papier aus Tank / Einzelziel / Schwarm bleibt unvollständig.
+**Geschlossen mit Azizis:** der **Schwarm** war die dringendste Lücke — ohne
+ihn fehlte die Antwort auf einzelne dicke Angreifer, und das
+Schere-Stein-Papier aus Tank / Einzelziel / Schwarm blieb unvollständig.
+Fünf eigene Charaktere sind damit im Roster.
 
 ### 7.4 Karten
 
@@ -391,19 +392,23 @@ bestehenden Spiels eingeblendet. Die sind **nicht** nachgebaut.
 ## 8. Decks
 
 Beide Seiten spielen dieselben eigenen Charaktere — sonst wären sie nur
-Deko im Spielerdeck. Die übrigen vier Plätze unterscheiden sich, damit
+Deko im Spielerdeck. Die übrigen drei Plätze unterscheiden sich, damit
 sich die Partien nicht spiegeln.
 
 | | Du (blau) | Gegner (rot) |
 |---|---|---|
 | Eigene Charaktere | Abdu · Yunus · Mertabi | Abdu · Yunus · Mertabi |
 | Tank | Timgioh | Timgioh |
+| Schwarm | Azizis | Azizis |
 | Siegbedingung | — | Rammbock |
-| Schwarm | Straßenbande | Rattenrudel |
 | Luft | Fledermäuse | Sturmfalke |
 | Zauber | Feuerball | Splitterregen |
-| Gebäude | Speerturm | — (stattdessen Speerbrüder) |
-| **Ø Kosten** | 3.6 💧 | 3.25 💧 |
+| Gebäude | Speerturm | — |
+| **Ø Kosten** | 3.75 💧 | 3.5 💧 |
+
+Mit Azizis stehen jetzt alle fünf eigenen Charaktere in beiden Decks; der
+Schwarm-Platz wird nicht mehr von Platzhaltern (Straßenbande / Rattenrudel)
+gefüllt.
 
 **Auseinanderhalten:** Da beide Seiten dieselben Modelle benutzen, bekommen
 gegnerische Figuren einen Rotstich (13 % Mischung) und eine orange
@@ -458,6 +463,61 @@ Er ersetzt den Steinwächter in beiden Decks.
 33 / 21 / 17 % Spielersiege. Erstmals ist die Reihenfolge über alle drei
 Stufen richtig herum. Gleichzeitig ist das Spiel insgesamt schwerer
 geworden — siehe Abschnitt 9.
+
+---
+
+#### 5 · Azizis — Schwarm, fünf Schwertkämpfer
+
+![Azizis](../assets/cards/azizis.jpg)
+
+Rundlicher, fröhlicher Junge in blauer Wappenrock-Tunika über weißem
+Hemd, goldener Knopf auf der Brust, brauner Gürtel mit Goldschnalle,
+kurzes Schwert mit Goldparier und goldenes Heaterschild, kräftige
+schwarze Lockenmähne. **Fünf** davon pro Karte.
+
+| | |
+|---|---|
+| **Kosten** | 4 💧 |
+| **Anzahl** | 5 Einheiten |
+| **Lebenspunkte** | 240 je Einheit → 1200 gesamt |
+| **Schaden** | 92 pro Schlag, je Einheit |
+| **Angriff alle** | 1.1 s → **84 DPS je Einheit, 418 gesamt** |
+| **Reichweite** | 1.2 (Nahkampf) |
+| **Tempo** | 1.4 — schnell |
+| **Ebene / Ziele** | Boden / **nur Boden** |
+| **Bild** | `assets/cards/azizis.jpg` |
+
+**Sein Profil.** Der Schwarm lebt von der Menge: fünf Klingen zerlegen
+einen einzelnen Tank in Sekunden (418 gesamt-DPS für 4 Elixier). Das
+Schild macht jeden zäher als die Straßenbande — 240 statt 220 HP —,
+weshalb Azizis auch mehr kostet. Bezahlt wird der Vorteil dreifach, das
+sind die klassischen Schwarm-Schwächen:
+
+- **Flächenschaden** trifft alle fünf auf einmal. Mertabi, Feuermagier,
+  Feuerball und Splitterregen löschen die Karte fast umsonst.
+- **Nur Boden** — gegen alles Fliegende völlig wehrlos.
+- **Nahkampf** — Fernkämpfer treten sie aus der Distanz aus.
+
+| | Kosten | Anzahl | HP gesamt | DPS gesamt | HP je Einheit |
+|---|---|---|---|---|---|
+| Rattenrudel (Referenz) | 1 | 4 | 360 | 267 | 90 |
+| Straßenbande (Referenz) | 2 | 3 | 660 | 286 | 220 |
+| **Azizis** | **4** | **5** | **1200** | **418** | **240** |
+
+**Im Konter-Netz:**
+- *Azizis schlägt:* einzelne dicke Angreifer — Tanks, Riesen, alles, was
+  auf einen Körper setzt
+- *Azizis verliert gegen:* jeden Flächenschaden, Fernkämpfer und alles
+  Fliegende
+
+Azizis nimmt in beiden Decks den Schwarm-Platz ein — beim Spieler statt
+der Straßenbande, beim Gegner statt des Rattenrudels. Damit spielen beide
+Seiten alle fünf eigenen Charaktere.
+
+Die Werte sind nach dem Stat-Modell abgeleitet, nicht per Benchmark
+eingestellt: der Schwarm ist symmetrisch in beiden Decks, verschiebt die
+Partie also nicht einseitig. Ein Benchmark-Lauf steht als eigener Schritt
+noch aus.
 
 ---
 
