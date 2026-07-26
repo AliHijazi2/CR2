@@ -240,7 +240,11 @@ function buildAbdu(){
   skull.scale.set(1.0, 1.1, 0.98);
   head.add(skull);
   head.add(part(capsule(0.058, 0.04, 12), skin(PAL.skin), 0, -0.06, 0.10));   // Kinn
-  head.add(part(capsule(0.06, 0.05, 12), skin(PAL.skinDark), 0, 0.06, -0.14));// Nacken
+  // Hier stand früher ein hautfarbener Zylinder als Hinterkopf. Solange
+  // die Haare eine dicke Halbkugel waren, lag er darunter verborgen. Mit
+  // der schlankeren Slickback-Frisur ragte er oben aus dem Haar heraus —
+  // als beige Kugel mitten im Hinterkopf. Den Hinterkopf bilden jetzt
+  // Haarellipse und Nackenfülle allein.
 
   for(const ex of [-0.058, 0.058]){                                   // Augen
     const e = part(ball(0.020, 12), mat(0xF2EDE4, { roughness:0.35 }), ex, 0.030, 0.126);
