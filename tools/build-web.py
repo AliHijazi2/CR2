@@ -8,7 +8,7 @@ in die Seite hinein. Lokal bleibt index.html unveraendert und laedt die
 Bilder ganz normal als Dateien.
 
 Aufruf:   python3 tools/build-web.py [ziel.html]
-Standard: build/brueckenkrieg.html
+Standard: build/twitch-royale.html
 """
 import base64
 import mimetypes
@@ -67,7 +67,7 @@ def inline_scripts(html: str) -> tuple[str, int]:
 # ---- Fassung fuer den Homebildschirm --------------------------------
 
 PWA_HEAD = """
-<meta name="description" content="Brückenkrieg — ein Kartenspiel um zwei Brücken.">
+<meta name="description" content="Twitch Royale — ein Kartenspiel um zwei Brücken.">
 <meta name="theme-color" content="#0E1A18">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
@@ -77,7 +77,7 @@ PWA_HEAD = """
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Brückenkrieg">
+<meta name="apple-mobile-web-app-title" content="Twitch Royale">
 """
 
 SW_REGISTER = """
@@ -94,7 +94,7 @@ if("serviceWorker" in navigator && location.protocol.startsWith("http")){
 """
 
 SW_JS = """/* Erzeugt von tools/build-web.py --site. Nicht von Hand aendern. */
-const CACHE = "brueckenkrieg-%(version)s";
+const CACHE = "twitch-royale-%(version)s";
 const FILES = %(files)s;
 
 self.addEventListener("install", e => {
@@ -120,8 +120,8 @@ self.addEventListener("fetch", e => {
 """
 
 MANIFEST = """{
-  "name": "Br\\u00fcckenkrieg",
-  "short_name": "Br\\u00fcckenkrieg",
+  "name": "Twitch Royale",
+  "short_name": "Twitch Royale",
   "description": "Ein Kartenspiel um zwei Br\\u00fccken.",
   "lang": "de",
   "start_url": "./",
@@ -182,7 +182,7 @@ def build_site(html: str) -> int:
 
     size = index.stat().st_size / 1024
     print(f"\n{index}  {size:.0f} KB  ({n} Bilder, {raw_bytes/1024:.0f} KB roh)")
-    print(f"Cache-Name: brueckenkrieg-{version}")
+    print(f"Cache-Name: twitch-royale-{version}")
     return 0
 
 
@@ -214,7 +214,7 @@ def main() -> int:
     if n == 0:
         print("  (keine)")
 
-    dest = pathlib.Path(args[0]) if args else ROOT / "build" / "brueckenkrieg.html"
+    dest = pathlib.Path(args[0]) if args else ROOT / "build" / "twitch-royale.html"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(page, encoding="utf-8")
 

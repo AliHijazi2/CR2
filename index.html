@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Brückenkrieg</title>
+<title>Twitch Royale</title>
 </head>
 <body>
 
@@ -265,6 +265,57 @@ canvas{
 .diff button:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 .tally{font-family:var(--font-num);font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;}
 
+/* ---------- Hauptmenü & Deck-Baukasten ---------- */
+.menuTop{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.menu .menuTop h1{
+  font-size:clamp(30px,9vw,44px);letter-spacing:.06em;font-weight:800;
+  /* Der eine kräftige Akzent der Seite: das Elixier-Violett. */
+  background:linear-gradient(180deg,#C79BFF,#7C4DFF);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.menuBtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+.btn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--line);}
+.btn.ghost:hover{background:var(--panel-hi);filter:none;}
+.btn:disabled{opacity:.4;cursor:default;filter:none;}
+
+/* Deck-Streifen: acht Karten, zwei Reihen zu vier */
+.deckStrip{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  width:100%;max-width:330px;
+}
+.card.mini{max-height:none;}
+.card.mini .nm{font-size:6px;letter-spacing:0;}
+.card.mini .cost{min-width:14px;height:14px;font-size:9px;bottom:3px;left:3px;}
+.card.mini.slot{
+  aspect-ratio:224/311;background:rgba(255,255,255,.03);
+  border:1px dashed var(--line);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:20px;cursor:default;
+}
+
+.veil.deckbuild{justify-content:flex-start;gap:9px;padding:14px 12px;overflow:hidden;}
+.deckCount{font-size:11px;letter-spacing:.05em;color:var(--muted);}
+.deckCount.short{color:var(--red);}
+.collection{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;
+  grid-auto-rows:112px;
+  width:100%;max-width:360px;flex:1 1 auto;min-height:0;
+  overflow-y:auto;padding:2px 2px 6px;
+}
+/* Feste Zeilenhöhe statt aspect-ratio: in einem scrollenden Flex-Grid
+   propagiert die aus dem Seitenverhältnis errechnete Höhe nicht sauber
+   in die Rasterzeilen, dann überlappen die Bildkarten die Reihe darunter. */
+.collection .card{height:112px;opacity:.45;transition:opacity .1s ease,transform .1s ease;}
+.collection .card.inDeck{opacity:1;}
+.collection .card.inDeck::after{
+  content:"✓";position:absolute;top:2px;right:3px;z-index:6;
+  width:15px;height:15px;border-radius:50%;
+  background:var(--blue);color:#fff;font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(0,0,0,.6);
+}
+.collection.full .card:not(.inDeck){opacity:.28;}
+
 #hint{
   position:absolute;left:0;right:0;bottom:9px;text-align:center;
   font-size:10.5px;letter-spacing:.05em;color:var(--muted);
@@ -294,26 +345,43 @@ canvas{
     <canvas id="cv"></canvas>
     <div id="hint" hidden></div>
 
-    <div class="veil" id="startVeil">
-      <div>
-        <div class="sub">Ein Kartenspiel um zwei Brücken</div>
-        <h1>Brückenkrieg</h1>
+    <div class="veil menu" id="menuVeil">
+      <div class="menuTop">
+        <div class="sub">Zwei Brücken · ein Deck · dein Turm</div>
+        <h1>Twitch Royale</h1>
       </div>
-      <p>Karte antippen, dann auf deine Hälfte tippen. Zerstöre mehr Türme als der Gegner —
-         oder seinen Königsturm, dann ist sofort Schluss.</p>
+      <div class="deckStrip" id="menuDeck"></div>
       <div class="diff" id="diffPick">
         <button data-d="0">Leicht</button>
         <button data-d="1" class="on">Normal</button>
         <button data-d="2">Schwer</button>
       </div>
-      <button class="btn" id="startBtn">Kampf beginnen</button>
+      <div class="menuBtns">
+        <button class="btn" id="playBtn">Spielen</button>
+        <button class="btn ghost" id="deckBtn">Deck bearbeiten</button>
+      </div>
+    </div>
+
+    <div class="veil deckbuild" id="deckVeil" hidden>
+      <div class="menuTop"><h2>Dein Deck</h2></div>
+      <div class="deckStrip" id="deckStrip"></div>
+      <div class="deckCount" id="deckCount">8 / 8 Karten</div>
+      <div class="sub">Sammlung · tippen zum Hinzufügen oder Entfernen</div>
+      <div class="collection" id="collection"></div>
+      <div class="menuBtns">
+        <button class="btn" id="deckDoneBtn">Fertig</button>
+        <button class="btn ghost" id="deckBackBtn">Zurück</button>
+      </div>
     </div>
 
     <div class="veil" id="endVeil" hidden>
       <h2 id="endTitle">—</h2>
       <div class="tally" id="endTally">—</div>
       <p id="endWhy">—</p>
-      <button class="btn" id="againBtn">Nochmal</button>
+      <div class="menuBtns">
+        <button class="btn" id="againBtn">Nochmal</button>
+        <button class="btn ghost" id="menuBtn">Menü</button>
+      </div>
     </div>
   </div>
 
@@ -506,6 +574,31 @@ const DECK_BLUE = ["abdu","yunus","mertabi","timgioh",
 const DECK_RED  = ["abdu","yunus","mertabi","timgioh",
                    "azizis","abugoku","rammbock","splitterregen"];
 
+/* DECK_BLUE ist nur noch die Voreinstellung. Das tatsaechlich gespielte
+   Deck stellt der Spieler im Baukasten zusammen; es wird in localStorage
+   gemerkt. Der Gegner behaelt sein festes DECK_RED. */
+const STORE_KEY = "twitchroyale";
+function loadSettings(){
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+function saveSettings(patch){
+  const s = Object.assign(loadSettings(), patch);
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch(e){}
+}
+function validDeck(d){
+  return Array.isArray(d) && d.length === 8
+      && new Set(d).size === 8 && d.every(id => CARDS[id]);
+}
+let playerDeck = (() => {
+  const d = loadSettings().deck;
+  return validDeck(d) ? d.slice() : DECK_BLUE.slice();
+})();
+let difficulty = (() => {
+  const n = loadSettings().diff;
+  return (n === 0 || n === 1 || n === 2) ? n : 1;
+})();
+
 /* interval  = Sekunden zwischen zwei Entscheidungen (Reaktionszeit)
    savings   = ab wie viel Elixier die KI zum Angriff übergeht.
                Hoch = große, gebündelte Wellen = stark.
@@ -575,7 +668,7 @@ function makeSide(deck){
 function newWorld(diff){
   W = {
     units:[], towers:[], effects:[],
-    blue:makeSide(DECK_BLUE), red:makeSide(DECK_RED),
+    blue:makeSide(playerDeck), red:makeSide(DECK_RED),
     time:MATCH_TIME, phase:"regular", elixirRate:1/ELIXIR_PERIOD,
     over:false, result:null, reason:"",
     bot:{ timer:1.5, cfg:DIFFICULTY[diff], push:null },
@@ -1218,18 +1311,117 @@ document.addEventListener("keydown", ev => {
   if(ev.key === "Escape"){ W.selected = -1; W.aim = null; hintEl.hidden = true; syncHud(); }
 });
 
-/* ---------- Overlays ---------- */
-const startVeil = document.getElementById("startVeil");
-const endVeil   = document.getElementById("endVeil");
-let difficulty = 1;
+/* ---------- Hauptmenü, Deck-Baukasten, Overlays ----------
+   Drei Bildschirme, alle als Overlay über der laufenden Arena:
+     menuVeil  — Hauptmenü: Titel, aktuelles Deck, Schwierigkeit, Spielen
+     deckVeil  — Deck-Baukasten: acht Plätze + Sammlung zum An-/Abwählen
+     endVeil   — Ergebnis, danach Nochmal oder zurück ins Menü
+   Das Deck lebt in playerDeck (oben, aus localStorage); der Baukasten
+   arbeitet auf einer Arbeitskopie und schreibt erst bei „Fertig“ zurück. */
+const menuVeil    = document.getElementById("menuVeil");
+const deckVeil    = document.getElementById("deckVeil");
+const endVeil     = document.getElementById("endVeil");
+const menuDeckEl  = document.getElementById("menuDeck");
+const deckStripEl = document.getElementById("deckStrip");
+const deckCountEl = document.getElementById("deckCount");
+const collectionEl= document.getElementById("collection");
+const deckDoneBtn = document.getElementById("deckDoneBtn");
+const diffPick    = document.getElementById("diffPick");
 
-document.getElementById("diffPick").addEventListener("click", ev => {
+// Der ganze Kartenvorrat ist wählbar — eigene Charaktere zuerst, dann
+// der Rest, so wie CARDS definiert ist.
+const COLLECTION = Object.keys(CARDS);
+
+/** Baut ein Kartenelement mit demselben Aussehen wie in der Hand. */
+function mkCard(id, mini){
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "card" + (mini ? " mini" : "");
+  b.innerHTML = '<div class="cost"></div><div class="ico"></div><div class="nm"></div>';
+  paintCard(b, CARDS[id]);
+  b.querySelector(".cost").textContent = CARDS[id].cost;
+  b.setAttribute("aria-label", `${CARDS[id].name}, ${CARDS[id].cost} Elixier`);
+  return b;
+}
+
+/* ----- Hauptmenü ----- */
+function renderMenuDeck(){
+  menuDeckEl.innerHTML = "";
+  for(const id of playerDeck) menuDeckEl.appendChild(mkCard(id, true));
+}
+function reflectDiff(){
+  for(const x of diffPick.querySelectorAll("button"))
+    x.classList.toggle("on", +x.dataset.d === difficulty);
+}
+diffPick.addEventListener("click", ev => {
   const b = ev.target.closest("button[data-d]");
   if(!b) return;
   difficulty = +b.dataset.d;
-  for(const x of ev.currentTarget.querySelectorAll("button")) x.classList.toggle("on", x === b);
+  saveSettings({ diff: difficulty });
+  reflectDiff();
 });
 
+/* ----- Deck-Baukasten ----- */
+let deckWorking = [];
+const colBtns = {};
+
+function buildCollection(){
+  collectionEl.innerHTML = "";
+  for(const id of COLLECTION){
+    const b = mkCard(id, true);
+    b.addEventListener("click", () => toggleCard(id));
+    collectionEl.appendChild(b);
+    colBtns[id] = b;
+  }
+}
+function toggleCard(id){
+  const i = deckWorking.indexOf(id);
+  if(i >= 0) deckWorking.splice(i, 1);
+  else if(deckWorking.length < 8) deckWorking.push(id);
+  else return;                       // Deck voll — Sammlung ist ausgegraut
+  renderBuilder();
+}
+function renderBuilder(){
+  deckStripEl.innerHTML = "";
+  for(let i = 0; i < 8; i++){
+    const id = deckWorking[i];
+    if(id){
+      const b = mkCard(id, true);
+      b.addEventListener("click", () => toggleCard(id));
+      deckStripEl.appendChild(b);
+    } else {
+      const slot = document.createElement("div");
+      slot.className = "card mini slot";
+      slot.textContent = "+";
+      deckStripEl.appendChild(slot);
+    }
+  }
+  for(const id in colBtns) colBtns[id].classList.toggle("inDeck", deckWorking.includes(id));
+  const n = deckWorking.length;
+  deckCountEl.textContent = n + " / 8 Karten";
+  deckCountEl.classList.toggle("short", n !== 8);
+  collectionEl.classList.toggle("full", n >= 8);
+  deckDoneBtn.disabled = n !== 8;
+}
+function openDeck(){
+  deckWorking = playerDeck.slice();
+  renderBuilder();
+  menuVeil.hidden = true; deckVeil.hidden = false;
+}
+function closeDeck(save){
+  if(save){
+    if(deckWorking.length !== 8) return;
+    playerDeck = deckWorking.slice();
+    saveSettings({ deck: playerDeck });
+    renderMenuDeck();
+  }
+  deckVeil.hidden = true; menuVeil.hidden = false;
+}
+function showMenu(){
+  endVeil.hidden = true; deckVeil.hidden = true; menuVeil.hidden = false;
+}
+
+/* ----- Ergebnis ----- */
 function showEnd(){
   const won = W.result === "blue";
   document.getElementById("endTitle").textContent =
@@ -1241,6 +1433,7 @@ function showEnd(){
   endVeil.hidden = false;
 }
 
+/* ----- Kampf starten ----- */
 function start(){
   initScene(cv);
   newWorld(difficulty);
@@ -1248,17 +1441,23 @@ function start(){
   buildHand();
   resize();
   syncHud();
-  startVeil.hidden = true;
-  endVeil.hidden = true;
+  menuVeil.hidden = true; deckVeil.hidden = true; endVeil.hidden = true;
   hintEl.hidden = true;
   acc = 0; last = 0;
   if(!running){ running = true; requestAnimationFrame(frame); }
 }
 
-document.getElementById("startBtn").addEventListener("click", start);
+document.getElementById("playBtn").addEventListener("click", start);
+document.getElementById("deckBtn").addEventListener("click", openDeck);
+document.getElementById("deckDoneBtn").addEventListener("click", () => closeDeck(true));
+document.getElementById("deckBackBtn").addEventListener("click", () => closeDeck(false));
 document.getElementById("againBtn").addEventListener("click", start);
+document.getElementById("menuBtn").addEventListener("click", showMenu);
 
-/* Startbild vorbereiten, damit die Arena schon zu sehen ist. */
+/* Startbild vorbereiten: Menü über der schon sichtbaren Arena. */
+buildCollection();
+renderMenuDeck();
+reflectDiff();
 initScene(cv);
 newWorld(difficulty);
 buildHand();

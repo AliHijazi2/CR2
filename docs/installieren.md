@@ -29,7 +29,7 @@ Zusammenführen erreichbar. Nach dem Merge kann die Zeile raus.
    iOS etwas auf den Homebildschirm legen)
 2. Unten auf **Teilen** (das Quadrat mit dem Pfeil nach oben)
 3. **Zum Home-Bildschirm** wählen
-4. Der Name steht schon da: *Brückenkrieg*. Auf **Hinzufügen** tippen.
+4. Der Name steht schon da: *Twitch Royale*. Auf **Hinzufügen** tippen.
 
 Danach liegt das Symbol wie eine App auf dem Bildschirm. Beim Antippen
 startet das Spiel **im Vollbild** — ohne Adressleiste und ohne Safari-Leiste
