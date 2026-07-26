@@ -243,8 +243,8 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 
 | Rolle | Ziel | Aktuell | Status |
 |---|---|---|---|
-| Tank / Frontlinie | 2–3 | 0 | ❌ |
-| Einzelziel-Schaden | 3–4 | 0 | ❌ |
+| Tank / Frontlinie | 2–3 | 1 | 🔸 Abdu |
+| Einzelziel-Schaden | 3–4 | 1 | 🔸 Abdu |
 | Flächenschaden | 2–3 | 0 | ❌ |
 | Schwarm | 2–3 | 0 | ❌ |
 | Kann Luftziele treffen | ≥ 4 | 0 | ❌ |
@@ -253,6 +253,50 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 | Zauber | 2–4 | 0 | ❌ |
 | Defensivgebäude | 1–2 | 0 | ❌ |
 
+**Dringendste Lücke:** Es gibt noch nichts, was Luftziele trifft. Solange das so
+bleibt, wäre jede fliegende Karte unschlagbar.
+
 ### 7.4 Karten
 
-*(noch leer — Karte 1 kommt als Nächstes)*
+#### 1 · Abdu — Nahkämpfer, Fraktion Eisenband
+
+![Abdu](../assets/abdu.png)
+
+Schwerer Plattenpanzer mit Stacheln, kettenverstärkter Fellmantel,
+gegliederte Panzerhandschuhe, doppelköpfige Zieraxt.
+
+| | |
+|---|---|
+| **Kosten** | 4 💧 |
+| **Lebenspunkte** | 2000 |
+| **Schaden** | 230 pro Schlag |
+| **Angriff alle** | 1.3 s → **177 DPS** |
+| **Reichweite** | 1.2 (Nahkampf) |
+| **Tempo** | mittel (1.0 Kacheln/s) |
+| **Ebene / Ziele** | Boden / **nur Boden** |
+| **Bild** | `assets/abdu.png`, `artScale: 2.0` |
+
+**Wie die Zahlen zustande kommen.** Eingeordnet zwischen die beiden
+Referenz-Nahkämpfer, damit die Elixierkurve stimmt:
+
+| | Kosten | HP | DPS | HP je 💧 | DPS je 💧 |
+|---|---|---|---|---|---|
+| Klingenwache (Referenz) | 3 | 1400 | 133 | 467 | 44 |
+| **Abdu** | **4** | **2000** | **177** | **500** | **44** |
+| Steinwächter (Referenz) | 5 | 3200 | 147 | 640 | 29 |
+
+Abdu bekommt denselben Schaden pro Elixier wie die Klingenwache und einen
+kleinen Aufschlag bei den Lebenspunkten — das ist der übliche Bonus dafür,
+dass gebündelte Kraft in einer Karte unflexibler ist als verteilte.
+Gegenüber dem Steinwächter tauscht er gut die Hälfte der Lebenspunkte gegen
+deutlich mehr Schaden.
+
+**Seine Schwäche ist Absicht:** Die Axt erreicht keine Luftziele. Ohne diese
+Lücke wäre er bei 4 💧 die beste Bodenkarte im Spiel ohne Gegenargument.
+
+**Im Konter-Netz:**
+- *Abdu schlägt:* einzelne Tanks, Fernkämpfer, Gebäude
+- *Abdu verliert gegen:* Schwärme (mehrere Ziele gleichzeitig), alles Fliegende,
+  Ablenkung durch billige Gebäude
+
+Er steckt im Startdeck des Spielers und hat dort die Klingenwache ersetzt.

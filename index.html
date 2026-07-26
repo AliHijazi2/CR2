@@ -285,6 +285,17 @@ canvas{
    Faustregel: 1 Elixier ≈ 380 effektive HP  ODER  ≈ 60 DPS.
    ============================================================ */
 const CARDS = {
+  /* --- Eigene Charaktere --------------------------------------------
+     Abdu · Nahkämpfer · Fraktion Eisenband
+     Schwerer Plattenpanzer mit Fellmantel, doppelköpfige Axt.
+     Eingeordnet zwischen Klingenwache (3💧) und Steinwächter (5💧):
+     mehr Schaden als der Steinwächter, weit weniger Lebenspunkte.
+     Trifft keine Luftziele — die Axt reicht nicht nach oben.        */
+  abdu:{ name:"Abdu", emoji:"🪓", art:"assets/abdu.png", artScale:2.0,
+    cost:4, kind:"troop", count:1,
+    hp:2000, damage:230, hitSpeed:1.3, range:1.2, speed:1.0,
+    layer:"ground", targets:"ground", radius:0.48 },
+
   /* --- Nahkampf & Tanks --- */
   steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
     hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
@@ -336,7 +347,7 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
-const DECK_BLUE = ["steinwaechter","klingenwache","bogenschuetzinnen","feuermagier",
+const DECK_BLUE = ["abdu","steinwaechter","bogenschuetzinnen","feuermagier",
                    "strassenbande","fledermausschwarm","feuerball","speerturm"];
 const DECK_RED  = ["rammbock","klingenwache","bogenschuetzinnen","feuermagier",
                    "rattenrudel","speerbrueder","splitterregen","sturmfalke"];
@@ -349,11 +360,16 @@ const DECK_RED  = ["rammbock","klingenwache","bogenschuetzinnen","feuermagier",
    skip      = Chance, eine Verteidigung schlicht zu verschlafen
    aim       = Streuung der Platzierung in Kacheln (Anfängerfehler)
    combo     = Chance, hinter einen Angreifer sofort Unterstützung
-               nachzulegen, statt Karten einzeln zu verheizen           */
+               nachzulegen, statt Karten einzeln zu verheizen
+   patience  = Kampfwert, den eine Bedrohung erreichen muss, bevor
+               überhaupt verteidigt wird. Kleinkram fangen die Türme
+               selbst ab — wer auf jede Ratte eine Karte wirft, steht
+               beim echten Angriff mit leeren Händen da. Gelassenheit
+               ist hier also Können, nicht Trägheit.                    */
 const DIFFICULTY = [
-  { name:"Leicht", interval:2.6, savings:6, sloppiness:0.9, skip:0.50, aim:3.5, combo:0.0  },
-  { name:"Normal", interval:1.0, savings:6, sloppiness:0.2, skip:0.10, aim:1.2, combo:0.45 },
-  { name:"Schwer", interval:0.4, savings:6, sloppiness:0.0, skip:0.0,  aim:0.0, combo:1.0  },
+  { name:"Leicht", interval:2.6, savings:6, sloppiness:0.9, skip:0.50, aim:3.5, combo:0.0,  patience:0    },
+  { name:"Normal", interval:1.0, savings:6, sloppiness:0.2, skip:0.10, aim:1.2, combo:0.45, patience:600  },
+  { name:"Schwer", interval:0.4, savings:6, sloppiness:0.0, skip:0.0,  aim:0.0, combo:1.0,  patience:1000 },
 ];
 
 /* ============================================================
@@ -812,7 +828,8 @@ function botThink(dt){
   const threats = W.units.filter(u =>
     u.team === "blue" && !u.dead && !u.isTower && !u.isBuilding && u.y < RIVER.y1 + 1.5);
 
-  if(threats.length && underDefended(threats)){
+  const threatValue = threats.reduce((s2,t) => s2 + power(t), 0);
+  if(threats.length && threatValue >= cfg.patience && underDefended(threats)){
     if(Math.random() < cfg.skip) return;      // schwächere Stufen verschlafen Angriffe
     if(tryDefend(threats, options, cfg)) return;
   }
@@ -822,8 +839,12 @@ function botThink(dt){
     b.push.t -= cfg.interval;
     if(b.push.t <= 0) b.push = null;
     else if(Math.random() < cfg.combo){
+      // Nachschub nur, wenn danach noch Elixier zum Verteidigen bleibt.
+      // Ohne diese Reserve verpulvert eine angriffsfreudige KI alles nach
+      // vorn und steht beim Gegenangriff mit leeren Händen da.
       const support = options.filter(o =>
-        o.c.kind === "troop" && o.c.targets !== "buildings" && o.c.range >= 2.5);
+        o.c.kind === "troop" && o.c.targets !== "buildings" && o.c.range >= 2.5
+        && side.elixir - o.c.cost >= 3);
       if(support.length){
         support.sort((a,b2) =>
           (b2.c.damage/b2.c.hitSpeed*(b2.c.count||1)) - (a.c.damage/a.c.hitSpeed*(a.c.count||1)));
@@ -911,7 +932,7 @@ let S = 20;                          // Pixel pro Kachel
 /* ---- Bildmaterial ---------------------------------------------------
    Jede Karte darf statt des Emojis ein Bild tragen:
 
-     klingenwache:{ …, art:"assets/klingenwache.png", artScale:1.8 }
+     klingenwache:{ …, art:'assets/klingenwache.png', artScale:1.8 }
 
    art      Pfad oder data:-URI zum Bild (Blickrichtung: nach unten)
    artScale Höhe des Bildes als Vielfaches des Einheiten-Durchmessers
@@ -1024,10 +1045,13 @@ function drawArena(){
   }
 }
 
-function hpBar(u, cx, cy, wide){
+/** top = Oberkante, über der der Balken schweben soll. Bei Bildfiguren ist
+    das der obere Bildrand, nicht der viel kleinere Kollisionskreis. */
+function hpBar(u, cx, cy, wide, top){
   const w = wide ? px(u.radius*1.9) : px(Math.max(u.radius*2.1, 0.55));
   const hgt = wide ? 5 : 3.2;
-  const x = cx - w/2, y = cy - px(u.radius) - hgt - 3;
+  if(top === undefined) top = cy - px(u.radius);
+  const x = cx - w/2, y = top - hgt - 3;
   ctx.fillStyle = "rgba(0,0,0,.55)"; roundRect(x-1,y-1,w+2,hgt+2,2); ctx.fill();
   ctx.fillStyle = "#0C1412";        roundRect(x,y,w,hgt,1.6); ctx.fill();
   ctx.fillStyle = u.team === "blue" ? "#4C7DFF" : "#FF5A3C";
@@ -1070,12 +1094,14 @@ function drawUnit(u){
 
   ctx.globalAlpha = u.deploy > 0 ? 0.45 : 1;
   const art = getArt(u.art);
+  let barTop;                       // Oberkante für den Lebensbalken
   if(art){
     // Figur: Team-Ring liegt am Boden, das Bild steht darauf.
     teamDisc(cx, cy, r, u.team);
     const h = r * 2 * (u.artScale || 1.8);
     const w = h * (art.naturalWidth / art.naturalHeight || 1);
-    ctx.drawImage(art, cx - w/2, cy - h + r*0.42, w, h);
+    barTop = cy - h + r*0.42;
+    ctx.drawImage(art, cx - w/2, barTop, w, h);
   } else {
     ctx.fillStyle = u.team === "blue" ? "#2E4EA8" : "#9E3823";
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
@@ -1099,7 +1125,7 @@ function drawUnit(u){
     ctx.arc(cx, cy, r*1.28, -Math.PI/2, -Math.PI/2 + Math.PI*2*(u.lifetime/(CARDS[u.cardId].lifetime)));
     ctx.stroke();
   }
-  hpBar(u, cx, cy, false);
+  hpBar(u, cx, cy, false, barTop);
 }
 
 function drawEffects(){
