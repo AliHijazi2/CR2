@@ -36,10 +36,15 @@ function initScene(canvas){
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x16241F);
-  scene.fog = new THREE.Fog(0x1B2C24, 82, 130);
+  // Der Nebel loest den Baumguertel des Umlands zur Bildkante hin auf.
+  // Ohne ihn endet die Wiese mit einer harten Kante im Nichts. Farbe und
+  // Hintergrund sind gleich, damit der Uebergang nicht zu sehen ist —
+  // ein gedaempftes Waldgruen, kein Schwarz.
+  const HAZE = 0x2E4437;
+  scene.background = new THREE.Color(HAZE);
+  scene.fog = new THREE.Fog(HAZE, 46, 104);
 
-  camera = new THREE.PerspectiveCamera(38, 1, 1, 140);
+  camera = new THREE.PerspectiveCamera(38, 1, 1, 190);
 
   // Himmelslicht: kuehl von oben, warm reflektiert vom Boden.
   // Das ersetzt die fehlende Lichtstreuung und nimmt den Schatten
@@ -234,9 +239,177 @@ function groundMaterial(kind, tint, repX, repY, normalScale){
   });
 }
 
+/* ---- Umland ---------------------------------------------------------
+   Die Arena ist 18x32 Kacheln, also deutlich hochkanter als das
+   Fenster je sein wird. Passt man sie ganz ins Bild ein, bleibt links
+   und rechts zwangslaeufig Platz uebrig — und der war bisher schwarz.
+
+   Das Vorbild loest das nicht, indem es die Arena groesser zieht
+   (dann fiele der eigene Koenigsturm aus dem Bild), sondern indem um
+   die Arena herum Landschaft steht. Genau das passiert hier: eine
+   grosse Wiese, ein Baumguertel und Gebuesch. Der Rand des Bildes
+   zeigt damit Umland statt Nichts.
+
+   Zwei Regeln halten die Kosten klein:
+   - alles ueber InstancedMesh, macht zusammen vier Zeichenaufrufe
+   - nichts davon wirft Schatten. Der Schattenwurf der Sonne deckt nur
+     die Arena ab; wuerde das Umland mit hinein, muesste dieselbe
+     Schattenkarte die vierfache Flaeche abdecken und die Schatten auf
+     dem Spielfeld wuerden sichtbar grober.                          */
+const SURROUND = 44;        // halbe Kantenlaenge des Umlands in Kacheln
+const SUR_Y = -0.30;        // Oberkante, knapp unter dem Spielfeld
+
+function buildSurround(){
+  const rnd = _rand(90210);
+  const dummy = new THREE.Object3D();
+  const tint = new THREE.Color();
+
+  // Wiese. Kuehler und dunkler getoent als das Spielfeld, damit die
+  // Arena trotzdem die hellste Flaeche im Bild bleibt.
+  const meadow = new THREE.Mesh(
+    new THREE.BoxGeometry(SURROUND*2, 3.0, SURROUND*2),
+    groundMaterial("grass", 0x8FA37E, SURROUND*2/4.6, SURROUND*2/4.6, 1.2));
+  meadow.position.set(AW/2, SUR_Y - 1.5, AH/2);
+  meadow.material.envMapIntensity = 0.55;
+  meadow.receiveShadow = true;
+  scene.add(meadow);
+
+  /* Streubereich: ein Guertel entlang der Arenakante, nicht die ganze
+     Wiese. Gleichmaessig ueber die Flaeche verteilt landet bei knapper
+     Einpassung fast nichts im sichtbaren Rand — die Baeume waeren da,
+     aber weit draussen im Nebel. Stattdessen wird ein Punkt auf dem um
+     d vergroesserten Arena-Rechteck gezogen, mit d stark zur Arena hin
+     gewichtet. Die langen Seiten bekommen dadurch von selbst mehr ab,
+     und genau dort war vorher das Schwarz.
+
+     Nichts hinter der Kamera: die steht ueber der eigenen Grundlinie,
+     alles mit groesserem z waere verschwendete Arbeit. */
+  const spot = (dMin, dMax) => {
+    for(let i = 0; i < 24; i++){
+      const d = dMin + (dMax - dMin) * Math.pow(rnd(), 1.8);
+      const hx = AW/2 + 1.6 + d, hz = AH/2 + 1.6 + d;
+      const px = 2*hx, pz = 2*hz;
+      let t = rnd() * 2 * (px + pz), x, z;
+      if(t < px)            { x = -hx + t;      z = -hz; }
+      else if((t -= px) < pz){ x =  hx;          z = -hz + t; }
+      else if((t -= pz) < px){ x =  hx - t;      z =  hz; }
+      else                   { t -= px; x = -hx; z =  hz - t; }
+      x += AW/2; z += AH/2;
+      if(z > AH + 3) continue;
+      return [x, z];
+    }
+    return null;
+  };
+
+  /* --- Baeume: ein Stamm und drei Laubkugeln je Baum ---------------- */
+  const N_TREE = 140;
+  const trunkGeo = new THREE.CylinderGeometry(0.13, 0.21, 1.5, 6);
+  trunkGeo.translate(0, 0.75, 0);
+  const trunkMat = new THREE.MeshStandardMaterial({ color:0x6B5236, roughness:0.95, metalness:0 });
+  if(typeof applyTexSet === "function") applyTexSet(trunkMat, "woodN", 0.7, 0.9);
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, N_TREE);
+
+  const leafGeo = new THREE.SphereGeometry(1, 8, 6);
+  const leafMat = new THREE.MeshStandardMaterial({ color:0xFFFFFF, roughness:1.0, metalness:0,
+    flatShading:true });
+  // Laub bekommt sonst die volle Umgebungsspiegelung ab und leuchtet
+  // heller als das Spielfeld. envMapIntensity regelt genau das, ohne
+  // die Beleuchtung der Arena anzufassen.
+  leafMat.envMapIntensity = 0.30;
+  const leaves = new THREE.InstancedMesh(leafGeo, leafMat, N_TREE * 3);
+
+  let nt = 0, nl = 0;
+  for(let i = 0; i < N_TREE; i++){
+    const p = spot(0.8, 15);
+    if(!p) continue;
+    const [x, z] = p;
+    const s = 0.85 + rnd() * 0.95;
+
+    dummy.position.set(x, SUR_Y, z);
+    dummy.rotation.set(0, rnd() * 6.28, 0);
+    dummy.scale.set(s, s, s);
+    dummy.updateMatrix();
+    trunks.setMatrixAt(nt++, dummy.matrix);
+
+    // Grundton je Baum, die drei Kugeln weichen leicht davon ab
+    const h = 0.23 + rnd() * 0.09, l = 0.115 + rnd() * 0.085;
+    for(let k = 0; k < 3; k++){
+      const r = (0.62 + rnd() * 0.34) * s;
+      dummy.position.set(x + (rnd()-0.5) * 0.7 * s,
+                         SUR_Y + (1.25 + k * 0.34 + rnd() * 0.2) * s,
+                         z + (rnd()-0.5) * 0.7 * s);
+      dummy.rotation.set(rnd()*6.28, rnd()*6.28, rnd()*6.28);
+      dummy.scale.set(r, r * (0.78 + rnd()*0.3), r);
+      dummy.updateMatrix();
+      leaves.setMatrixAt(nl, dummy.matrix);
+      tint.setHSL(h + (rnd()-0.5)*0.03, 0.34 + rnd()*0.20, l + (rnd()-0.5)*0.05);
+      leaves.setColorAt(nl, tint);
+      nl++;
+    }
+  }
+  trunks.count = nt; leaves.count = nl;
+  trunks.instanceMatrix.needsUpdate = true;
+  leaves.instanceMatrix.needsUpdate = true;
+  if(leaves.instanceColor) leaves.instanceColor.needsUpdate = true;
+  scene.add(trunks); scene.add(leaves);
+
+  /* --- Gebuesch: fuellt den Boden zwischen den Baeumen -------------- */
+  const N_BUSH = 190;
+  const bushGeo = new THREE.SphereGeometry(1, 7, 5);
+  const bushMat = new THREE.MeshStandardMaterial({ color:0xFFFFFF, roughness:1.0, metalness:0,
+    flatShading:true });
+  bushMat.envMapIntensity = 0.30;
+  const bushes = new THREE.InstancedMesh(bushGeo, bushMat, N_BUSH);
+  let nb = 0;
+  for(let i = 0; i < N_BUSH; i++){
+    const p = spot(0.3, 11);
+    if(!p) continue;
+    const r = 0.28 + rnd() * 0.55;
+    dummy.position.set(p[0], SUR_Y + r * 0.42, p[1]);
+    dummy.rotation.set(0, rnd() * 6.28, 0);
+    dummy.scale.set(r * (0.9 + rnd()*0.5), r * (0.6 + rnd()*0.4), r * (0.9 + rnd()*0.5));
+    dummy.updateMatrix();
+    bushes.setMatrixAt(nb, dummy.matrix);
+    tint.setHSL(0.25 + rnd()*0.07, 0.30 + rnd()*0.18, 0.105 + rnd()*0.075);
+    bushes.setColorAt(nb, tint);
+    nb++;
+  }
+  bushes.count = nb;
+  bushes.instanceMatrix.needsUpdate = true;
+  if(bushes.instanceColor) bushes.instanceColor.needsUpdate = true;
+  scene.add(bushes);
+
+  /* --- Findlinge dicht an der Bande --------------------------------- */
+  const N_BOULDER = 70;
+  const bGeo = new THREE.SphereGeometry(0.5, 6, 4);
+  const bMat = new THREE.MeshStandardMaterial({ color:0x8C8880, roughness:0.94, metalness:0.02 });
+  if(typeof applyTexSet === "function") applyTexSet(bMat, "stoneN", 1.2, 1.1);
+  const boulders = new THREE.InstancedMesh(bGeo, bMat, N_BOULDER);
+  let nr = 0;
+  for(let i = 0; i < N_BOULDER; i++){
+    const p = spot(0.15, 8);
+    if(!p) continue;
+    const s = 0.4 + rnd() * 1.0;
+    dummy.position.set(p[0], SUR_Y + s * 0.22, p[1]);
+    dummy.rotation.set(rnd()*6.28, rnd()*6.28, rnd()*6.28);
+    dummy.scale.set(s, s * (0.5 + rnd()*0.4), s * (0.8 + rnd()*0.5));
+    dummy.updateMatrix();
+    boulders.setMatrixAt(nr, dummy.matrix);
+    tint.setHSL(0.09, 0.04 + rnd()*0.06, 0.36 + rnd()*0.22);
+    boulders.setColorAt(nr, tint);
+    nr++;
+  }
+  boulders.count = nr;
+  boulders.instanceMatrix.needsUpdate = true;
+  if(boulders.instanceColor) boulders.instanceColor.needsUpdate = true;
+  scene.add(boulders);
+}
+
 /* ---- Arena ------------------------------------------------------- */
 function buildArena(){
   const half = { x: AW/2, z: AH/2 };
+
+  buildSurround();
 
   const mk = (w, d, x, z, tint) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d),
@@ -886,7 +1059,7 @@ function resize(){
 
    Beides haengt voneinander ab, also wechseln sich die Schritte ab.
    Laeuft nur beim Aendern der Fenstergroesse — die Kosten sind egal.  */
-const FIT_MARGIN = 0.9;      // Rand in Kacheln
+const FIT_MARGIN = 0.2;      // Rand in Kacheln, knapp: das Umland traegt den Rest
 const FIT_TOP    = 3.6;      // Hoehe der Tuerme, damit die Zinnen passen
 const _fitV = new THREE.Vector3();
 let _fitPts = null;

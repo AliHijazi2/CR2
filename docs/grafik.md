@@ -141,6 +141,41 @@ Der leere Rasen bekommt:
 den Alphakanal. Masken muessen als Graustufe in RGB geschrieben werden, sonst wird
 aus einem weichen Fleck eine harte Scheibe.
 
+### 2.6 Umland (`buildSurround()`)
+Die Arena ist 18 × 32 Kacheln, also mit 0.56 deutlich hochkanter als jedes Fenster
+je sein wird. Passt man sie ganz ins Bild ein, bleibt links und rechts zwangslaeufig
+Platz uebrig — und der war schwarz.
+
+Die Arena einfach groesser zu ziehen ist keine Loesung: dann faellt der eigene
+Koenigsturm aus dem Bild und man kann nicht mehr sehen, was vor der eigenen
+Grundlinie passiert. Das Vorbild loest es ueber Landschaft *um* die Arena herum.
+Genau das macht `buildSurround()`: eine grosse Wiese, ein Baumguertel, Gebuesch,
+Findlinge.
+
+**Regel — Guertel, nicht Flaeche.** Der erste Versuch hat die Baeume gleichmaessig
+ueber die ganze Wiese verteilt. Bei knapper Einpassung landet dabei fast nichts im
+sichtbaren Rand — 96 Baeume waren da, aber weit draussen im Nebel. Stattdessen wird
+ein Punkt auf dem um `d` vergroesserten Arena-Rechteck gezogen, mit `d` stark zur
+Arena hin gewichtet (`Math.pow(rnd(), 1.8)`). Die langen Seiten bekommen dadurch von
+selbst mehr ab, und genau dort war das Schwarz.
+
+**Regel — kein Schattenwurf im Umland.** Die Schattenkamera der Sonne deckt nur die
+Arena ab (`left/right ±18`, `top/bottom ±26`). Nimmt man das Umland mit hinein, muss
+dieselbe Schattenkarte die vierfache Flaeche abdecken und die Schatten *auf dem
+Spielfeld* werden sichtbar grober. Das Umland wirft deshalb nichts.
+
+**Regel — `envMapIntensity` statt Farbe.** Laub ohne Schattenwurf bekommt von allen
+Seiten volles Licht und leuchtet heller als das Spielfeld — auch mit dunkler
+Grundfarbe. Der richtige Hebel ist `material.envMapIntensity` (Laub 0.30, Wiese
+0.55): er nimmt genau diesem Material die Umgebungsbeleuchtung, ohne die
+Beleuchtung der Arena anzufassen.
+
+Der Nebel (`Fog(0x2E4437, 46, 104)`) loest den Baumguertel zur Bildkante hin auf.
+Nebelfarbe und `scene.background` sind gleich, sonst sieht man den Uebergang.
+
+Kosten: vier Zeichenaufrufe (Staemme, Laub, Gebuesch, Findlinge) fuer rund 640
+Instanzen.
+
 ---
 
 ## 3. Performance
@@ -183,6 +218,29 @@ Texturgenerierung: ~185 ms, einmalig beim Start.
 
 ---
 
+## 3a. Kameraeinpassung
+
+Die Arena muss bei jedem Seitenverhaeltnis ganz ins Bild passen *und* mittig sitzen.
+Eine geschlossene Formel dafuer ist unzuverlaessig: die Kamera ist um 1.12 rad
+geneigt, also steht die vordere Arenakante naeher an der Kamera und projiziert
+groesser als die hintere. Die alte Naeherung ueber `AH * cos(tilt)` hat sie
+unterschaetzt und bei breiteren Fenstern den eigenen Koenigsturm abgeschnitten.
+
+`fitArena()` sucht stattdessen zwei Groessen, indem es die acht Eckpunkte des
+Arena-Quaders wirklich projiziert:
+
+- **`dist`** — der Abstand. "Passt es noch" ist monoton in `dist`, also findet
+  Intervallhalbierung sicher den kleinsten passenden Abstand.
+- **`look`** — der Zielpunkt auf der Mittelachse. Nur den Abstand zu suchen reicht
+  nicht: durch die Neigung stoesst die vordere Kante zuerst an, waehrend oben ein
+  breiter leerer Streifen bleibt. Der Zielpunkt wird per Newton-Schritt so
+  verschoben, dass ober- und unterhalb gleich viel Rand bleibt.
+
+Beides haengt voneinander ab, also wechseln sich die Schritte fuenfmal ab. Laeuft
+nur beim Aendern der Fenstergroesse.
+
+`FIT_MARGIN` steht auf 0.2 Kacheln — knapp, weil das Umland den Rest traegt.
+
 ## 4. Regeln fuer neue Assets
 
 1. Keine reinen Farbflaechen. Jedes Material bekommt eine Textursorte.
@@ -193,3 +251,6 @@ Texturgenerierung: ~185 ms, einmalig beim Start.
 6. Nach jedem neuen Modell den Meshzaehler pruefen: eine Figur sollte unter 30 liegen.
 7. Farben in linearem Raum mischen sich staerker als erwartet — der rote
    Gegnerton liegt bei `lerp 0.13`, nicht bei 0.30.
+8. Nie eine leere Bildkante zulassen. Was am Rand steht, gehoert ins Umland und
+   damit in `buildSurround()` — nicht in `dressScene()`, das nur die Arena
+   ausstattet.

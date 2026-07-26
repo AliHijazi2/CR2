@@ -172,7 +172,9 @@ canvas{
   padding:0 2px;
   background:linear-gradient(#B98F3E,#7C5620);
   border:1px solid #E0BF74;border-radius:3px;
-  font-size:7.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  /* Knapp gehalten: "Straßenbande" stoesst bei schmalen Fenstern sonst
+     an beide Raender des Titelschilds. */
+  font-size:7px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;
   color:#FFF7E3;text-shadow:0 1px 1px rgba(0,0,0,.55);
   overflow:hidden;white-space:nowrap;
 }
@@ -203,7 +205,7 @@ canvas{
 .card:disabled{cursor:default;}
 .card:disabled::before{
   content:"";position:absolute;inset:0;z-index:2;border-radius:8px;
-  background:rgba(8,14,20,.62);
+  background:rgba(8,14,20,.55);
 }
 .card:disabled .ico img{filter:grayscale(.5) brightness(.85);}
 .card:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
