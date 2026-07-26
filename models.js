@@ -251,13 +251,58 @@ function buildAbdu(){
     head.add(brow);
   }
 
-  // Haar: Kappe über dem Schädel, hinten länger
-  const hair = part(dome(0.163, 20), cloth(PAL.hair), 0, 0.03, -0.005);
-  hair.scale.set(1.02, 1.12, 1.02);
+  /* --- Haar: nach hinten gegelt -------------------------------------
+     Vorher war das eine Halbkugel — die hat rundherum eine waagerechte
+     Schnittkante und sieht deshalb aus wie eine über die Stirn gezogene
+     Mütze. Stattdessen jetzt eine Vollellipse, die gegenüber dem Schädel
+     nach HINTEN und nach OBEN versetzt ist: vorn verschwindet sie im Kopf
+     (Stirn bleibt frei, die Haarlinie sitzt hoch), oben und hinten ragt
+     sie heraus. Genau das ergibt die Silhouette von zurückgekämmtem Haar.
+     Darüber liegen einzelne Strähnen, die die Kämmrichtung zeigen.    */
+  const hairMat = cloth(PAL.hair);
+
+  const hair = part(ball(0.162, 22), hairMat, 0, 0.046, -0.020);
+  hair.scale.set(1.02, 0.99, 1.04);        // eng am Schädel, nicht bauschig
   head.add(hair);
-  const nape = part(ball(0.115, 16), cloth(PAL.hair), 0, 0.00, -0.10);
-  nape.scale.set(1.05, 1.0, 0.8);
-  head.add(nape);
+
+  // Aufwölbung über der Stirn: der Punkt, ab dem das Haar zurückgeht.
+  // Ohne sie beginnt die Frisur aus dem Nichts und wirkt wie ein Topfschnitt.
+  const quiff = part(ball(0.088, 16), hairMat, 0, 0.150, 0.040);
+  quiff.scale.set(1.35, 0.62, 1.05);
+  quiff.rotation.x = -0.42;
+  head.add(quiff);
+
+  // Fülle im Nacken, deutlich flacher als zuvor
+  const bulk = part(ball(0.108, 18), hairMat, 0, 0.022, -0.118);
+  bulk.scale.set(0.92, 0.80, 1.16);
+  head.add(bulk);
+
+  // Auslauf am Nacken
+  const tail = part(capsule(0.038, 0.040, 12), hairMat, 0, -0.068, -0.140);
+  tail.rotation.x = -0.60;
+  tail.scale.set(1.55, 1, 0.70);
+  head.add(tail);
+
+  // Schläfen: höher angesetzt, damit sie nicht über die Wangen hängen
+  for(const sx of [-1, 1]){
+    const temple = part(ball(0.088, 14), hairMat, 0.130 * sx, 0.070, -0.062);
+    temple.scale.set(0.32, 0.62, 1.02);
+    head.add(temple);
+    // Ohr davor, damit sich Ohr und Schläfenhaar nicht durchdringen
+    const ear = part(ball(0.034, 12), skin(PAL.skinDark), 0.146 * sx, -0.008, 0.026);
+    ear.scale.set(0.38, 1.10, 0.78);
+    head.add(ear);
+  }
+
+  // Strähnen: dünner und heller, damit sie als Glanz statt als Wülste lesen
+  for(let i = 0; i < 9; i++){
+    const dx = (i / 8 - 0.5) * 0.215;
+    const st = part(capsule(0.0075, 0.225, 8), cloth(0x4A3626),
+                    dx, 0.132 - Math.abs(dx) * 0.44, -0.024 - Math.abs(dx) * 0.12);
+    st.rotation.x = -1.80;                 // nach hinten geneigt, dem Schädel folgend
+    st.rotation.z = -dx * 2.4;             // nach außen auffächernd
+    head.add(st);
+  }
 
   // Bart: Schnurrbart plus Kinnbart, weiche Formen
   const mous = part(capsule(0.026, 0.075, 10), cloth(PAL.hair), 0, -0.035, 0.135);
@@ -383,9 +428,15 @@ function buildWalker(card, cardId){
   const sk = part(ball(0.125*s, 18), skin(PAL.skin), 0, 0, 0);
   sk.scale.set(1, 1.08, 0.97);
   head.add(sk);
-  const hr = part(dome(0.132*s, 18), cloth(PAL.hair), 0, 0.015*s, 0);
-  hr.scale.set(1.02, 1.05, 1.02);
+  // Kein dome: eine Halbkugel hat rundum eine waagerechte Kante und
+  // sieht deshalb aus wie eine Mütze. Stattdessen eine Vollellipse,
+  // nach hinten oben versetzt — Stirn frei, Masse im Nacken.
+  const hr = part(ball(0.130*s, 18), cloth(PAL.hair), 0, 0.038*s, -0.020*s);
+  hr.scale.set(1.02, 0.98, 1.05);
   head.add(hr);
+  const hrBack = part(ball(0.098*s, 14), cloth(PAL.hair), 0, 0.010*s, -0.098*s);
+  hrBack.scale.set(0.92, 0.80, 1.15);
+  head.add(hrBack);
   if(heavy){
     const helm = part(dome(0.142*s, 18), metal(PAL.steel, 0.35), 0, 0.005*s, 0);
     helm.scale.set(1.02, 1.0, 1.02);
