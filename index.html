@@ -323,6 +323,16 @@ const CARDS = {
     hp:640, damage:300, hitSpeed:1.9, range:5.2, speed:0.9,
     layer:"ground", targets:"both", splash:1.6, radius:0.45 },
 
+  /* Timgioh · Riese · Tank
+     Reiner Schadensschwamm: mehr Lebenspunkte als alles bisherige,
+     dafür der langsamste im Spiel und mit der trägsten Schlagfolge.
+     Er schlägt mit den Fäusten — keine Reichweite nach oben, also
+     kein Treffer gegen Luftziele.                                  */
+  timgioh:{ name:"Timgioh", emoji:"🪵", art:"assets/timgioh.png", artScale:2.4,
+    cost:5, kind:"troop", count:1,
+    hp:3800, damage:240, hitSpeed:1.8, range:1.3, speed:0.65,
+    layer:"ground", targets:"ground", radius:0.62 },
+
   /* --- Nahkampf & Tanks --- */
   steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
     hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
@@ -374,15 +384,15 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
-const DECK_BLUE = ["abdu","yunus","mertabi","steinwaechter",
+const DECK_BLUE = ["abdu","yunus","mertabi","timgioh",
                    "strassenbande","fledermausschwarm","feuerball","speerturm"];
 // Der Gegner spielt dieselben eigenen Charaktere wie du — sonst waeren
 // sie nur Deko im Spielerdeck. Die uebrigen vier Plaetze sind bewusst
 // anders besetzt als in DECK_BLUE, damit sich die Partien unterscheiden:
 // Rammbock als Siegbedingung, Rattenrudel als Schwarm, Splitterregen
 // als Zauber, Sturmfalke als Lufteinheit.
-const DECK_RED  = ["abdu","yunus","mertabi","rammbock",
-                   "rattenrudel","speerbrueder","splitterregen","sturmfalke"];
+const DECK_RED  = ["abdu","yunus","mertabi","timgioh",
+                   "rattenrudel","rammbock","splitterregen","sturmfalke"];
 
 /* interval  = Sekunden zwischen zwei Entscheidungen (Reaktionszeit)
    savings   = ab wie viel Elixier die KI zum Angriff übergeht.

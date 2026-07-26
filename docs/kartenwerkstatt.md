@@ -243,7 +243,7 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 
 | Rolle | Ziel | Aktuell | Status |
 |---|---|---|---|
-| Tank / Frontlinie | 2–3 | 1 | 🔸 Abdu |
+| Tank / Frontlinie | 2–3 | 2 | ✅ Abdu, Timgioh |
 | Einzelziel-Schaden | 3–4 | 2 | 🔸 Abdu, Yunus |
 | Flächenschaden | 2–3 | 1 | 🔸 Mertabi |
 | Schwarm | 2–3 | 0 | ❌ |
@@ -397,7 +397,8 @@ sich die Partien nicht spiegeln.
 | | Du (blau) | Gegner (rot) |
 |---|---|---|
 | Eigene Charaktere | Abdu · Yunus · Mertabi | Abdu · Yunus · Mertabi |
-| Tank / Siegbedingung | Steinwächter | Rammbock |
+| Tank | Timgioh | Timgioh |
+| Siegbedingung | — | Rammbock |
 | Schwarm | Straßenbande | Rattenrudel |
 | Luft | Fledermäuse | Sturmfalke |
 | Zauber | Feuerball | Splitterregen |
@@ -411,3 +412,74 @@ Bodenmarkierung; deine bleiben unverfälscht mit blauer Markierung.
 **Balance nach der Umstellung** (300 Partien je Stufe, fester Testspieler):
 42 / 24 / 27 % Spielersiege. Der Gegner ist spürbar stärker als vorher —
 er hat jetzt richtige Karten statt der Referenz-Platzhalter.
+
+---
+
+#### 4 · Timgioh — Riese, Tank
+
+![Timgioh](../assets/timgioh.png)
+
+Brustpanzer aus Fassdauben mit zwei Metallreifen, Seilbindung und
+Rostspuren; verstärkte Schulterstücke aus denselben Brettern, breiter
+Ledergürtel mit Messingschnalle, Kittel mit ausgefranstem Saum,
+blaugrüne Hose, schwere Stiefel. **Keine Waffe** — er schlägt mit
+den Fäusten.
+
+| | |
+|---|---|
+| **Kosten** | 5 💧 |
+| **Lebenspunkte** | 3800 |
+| **Schaden** | 240 pro Schlag |
+| **Angriff alle** | 1.8 s → **133 DPS** |
+| **Reichweite** | 1.3 (Nahkampf) |
+| **Tempo** | 0.65 — der langsamste im Spiel |
+| **Ebene / Ziele** | Boden / **nur Boden** |
+| **Bild** | `assets/timgioh.png`, `artScale: 2.4` |
+
+**Sein Profil.** Reiner Schadensschwamm: 760 HP je Elixier — mehr als
+jede andere Karte —, dafür nur 27 DPS je Elixier und das langsamste
+Tempo. Er kommt spät an, hält dafür lange. Fäuste haben keine
+Reichweite nach oben, also trifft er keine Luftziele.
+
+| | Kosten | HP | DPS | HP je 💧 | Tempo |
+|---|---|---|---|---|---|
+| Abdu | 4 | 2000 | 177 | 500 | 1.0 |
+| Steinwächter (Referenz) | 5 | 3200 | 147 | 640 | 0.7 |
+| **Timgioh** | **5** | **3800** | **133** | **760** | **0.65** |
+
+**Im Konter-Netz:**
+- *Timgioh schlägt:* alles, was ihn einzeln aufhalten will
+- *Timgioh verliert gegen:* Schwärme, Ablenkung durch Gebäude, und
+  alles Fliegende — dagegen ist er vollkommen wehrlos
+
+Er ersetzt den Steinwächter in beiden Decks.
+
+**Balance nach dem Einbau** (300 Partien je Stufe, fester Testspieler):
+33 / 21 / 17 % Spielersiege. Erstmals ist die Reihenfolge über alle drei
+Stufen richtig herum. Gleichzeitig ist das Spiel insgesamt schwerer
+geworden — siehe Abschnitt 9.
+
+---
+
+## 9. Schwierigkeits-Drift
+
+Der feste Testspieler spielt immer gleich schlecht: alle drei Sekunden die
+teuerste bezahlbare Karte an eine feste Stelle. Seine Siegquote auf „Leicht"
+ist damit ein Maßstab dafür, wie zugänglich das Spiel ist.
+
+| Stand | Leicht | Normal | Schwer |
+|---|---|---|---|
+| Nur Referenzkarten | 55 % | 50 % | 36 % |
+| + Yunus | 45 % | 31 % | 32 % |
+| + Mertabi | 49 % | 30 % | 36 % |
+| + eigene Karten auch beim Gegner | 42 % | 24 % | 27 % |
+| + Timgioh | **33 %** | **21 %** | **17 %** |
+
+Die Richtung ist eindeutig: **Jede neue Karte macht das Spiel schwerer.**
+Der Grund ist nicht, dass die Karten zu stark wären — beide Seiten haben
+sie ja. Es liegt daran, dass gute Karten *kontextabhängiges* Spiel belohnen,
+und genau das kann der Testspieler nicht, die KI aber schon.
+
+Für einen echten Menschen heißt das nicht zwingend „zu schwer". Falls doch,
+ist der sauberste Hebel die **Elixier-Rate der KI**, nicht die Kartenwerte —
+damit bleibt das Deck-Design unangetastet.

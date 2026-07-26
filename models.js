@@ -758,6 +758,178 @@ function buildMertabi(){
 }
 
 /* ============================================================
+   TIMGIOH — Riese, Tank
+
+   Aus dem Referenzblatt: Brustpanzer aus Fassdauben mit Metall-
+   reifen und Seilbindung, verstärkte Schulterstücke, Lederstulpen,
+   breiter Gürtel mit Messingschnalle, Kittel mit ausgefranstem
+   Saum, blaugrüne Hose, schwere Stiefel. Keine Waffe — er
+   schlägt mit den Fäusten. Deutlich größer als die übrigen
+   Figuren; die Größenangabe auf dem Blatt ist eindeutig.
+   ============================================================ */
+const TIM = { tunic:0x9E9068, tunicDk:0x7E7150, plank:0x8A7250, plankDk:0x6B5739,
+              band:0x76797E, rust:0x8E5A32, rope:0xBFA87C, leather:0x6B4A2E,
+              leatherDk:0x483120, brass:0xB99038, trouser:0x3C5A63, boot:0x5A4028 };
+
+function buildTimgioh(){
+  const root = new THREE.Group();
+  const hips = joint(0, 0.64, 0);
+  root.add(hips);
+
+  /* --- Beine: kurz und stämmig, breiter Stand ------------------- */
+  const bootGeo = lathe("tboot", [
+    [0.00, 0.00], [0.150, 0.01], [0.168, 0.07], [0.155, 0.15],
+    [0.170, 0.20], [0.166, 0.28], [0.00, 0.29],
+  ], 20);
+  const leg = side => {
+    const j = joint(0.165 * side, 0, 0);
+    j.add(part(capsule(0.115, 0.17, 16), cloth(TIM.trouser), 0, -0.15, 0));
+    j.add(part(capsule(0.104, 0.12, 16), cloth(TIM.trouser), 0, -0.35, 0));
+    const b = part(bootGeo, hide(TIM.boot), 0, -0.56, 0.02);
+    b.scale.set(1.05, 1.0, 1.45);
+    j.add(b);
+    const rim = part(ring(0.156, 0.024, 18), hide(TIM.leatherDk), 0, -0.355, 0.01);
+    rim.rotation.x = Math.PI/2; rim.scale.set(1.02, 1, 1.15);
+    j.add(rim);
+    return j;
+  };
+  const legL = leg(-1), legR = leg(1);
+  hips.add(legL, legR);
+
+  /* --- Rumpf: schwerer Kittel ----------------------------------- */
+  const torso = joint(0, 0.03, 0);
+  hips.add(torso);
+  const body = part(lathe("ttorso", [
+    [0.000, 0.00], [0.215, 0.01], [0.232, 0.10], [0.228, 0.24],
+    [0.238, 0.38], [0.230, 0.50], [0.192, 0.58], [0.000, 0.60],
+  ], 24), cloth(TIM.tunic), 0, -0.10, 0);
+  body.scale.set(1.06, 1, 0.90);
+  torso.add(body);
+
+  // Ausgefranster Saum: einzelne Zipfel statt glatter Kante
+  for(let i = 0; i < 16; i++){
+    const a = (i / 16) * Math.PI * 2;
+    const len = 0.055 + (i % 3) * 0.022;
+    const t = part(box(0.030, len, 0.010), cloth(i % 2 ? TIM.tunic : TIM.tunicDk),
+                   Math.sin(a) * 0.222 * 1.06, -0.104 - len/2, Math.cos(a) * 0.222 * 0.90);
+    t.rotation.y = a;
+    t.rotation.x = (i % 2 ? 0.12 : -0.08);
+    torso.add(t);
+  }
+
+  /* --- Brustpanzer aus Fassdauben -------------------------------
+     Neun senkrechte Bretter auf einem Frontbogen, dazu zwei
+     Metallreifen und zwei Seilbindungen.                       */
+  const CH = 0.222;
+  for(let i = 0; i < 9; i++){
+    const a = -1.15 + i * 0.2875;
+    const pl = part(box(0.062, 0.33, 0.042), hide(i % 2 ? TIM.plank : TIM.plankDk),
+                    Math.sin(a) * CH * 1.06, 0.335, Math.cos(a) * CH * 0.90);
+    pl.rotation.y = a;
+    torso.add(pl);
+  }
+  for(const [y, col, tb] of [[0.265, TIM.band, 0.020], [0.405, TIM.band, 0.020],
+                             [0.195, TIM.rope, 0.013], [0.470, TIM.rope, 0.013]]){
+    const hoop = part(ring(CH + 0.014, tb, 26), col === TIM.rope ? hide(col) : metal(col, 0.5),
+                      0, y, 0);
+    hoop.rotation.x = Math.PI/2;
+    hoop.scale.set(1.06, 0.90, 1);
+    torso.add(hoop);
+  }
+  // Rostflecken auf den Reifen
+  for(let i = 0; i < 5; i++){
+    const a = -1.0 + i * 0.5;
+    torso.add(part(box(0.040, 0.038, 0.024), mat(TIM.rust, { roughness:0.95 }),
+                   Math.sin(a) * (CH + 0.016) * 1.06, 0.265 + (i % 2) * 0.14,
+                   Math.cos(a) * (CH + 0.016) * 0.90));
+  }
+
+  /* --- Gürtel mit Messingschnalle ------------------------------- */
+  const belt = part(ring(0.228, 0.040, 24), hide(TIM.leather), 0, -0.02, 0);
+  belt.rotation.x = Math.PI/2; belt.scale.set(1.06, 0.90, 1);
+  torso.add(belt);
+  torso.add(part(box(0.130, 0.112, 0.038), metal(TIM.brass, 0.45), 0, -0.02, 0.232));
+  torso.add(part(box(0.086, 0.072, 0.044), cloth(TIM.leather), 0, -0.02, 0.238));
+
+  /* --- Schulterstücke: dieselben Dauben, quer gelegt ------------ */
+  const pauldron = side => {
+    const g = joint(0.278 * side, 0.455, 0);
+    g.rotation.z = -0.28 * side;
+    for(let i = 0; i < 3; i++){
+      const pl = part(box(0.165, 0.070, 0.195), hide(i % 2 ? TIM.plank : TIM.plankDk),
+                      0.02 * side, 0.015 - i * 0.082, 0);
+      pl.rotation.x = 0.06 * i;
+      g.add(pl);
+    }
+    const strap = part(box(0.034, 0.245, 0.205), metal(TIM.band, 0.5), 0.062 * side, -0.05, 0);
+    g.add(strap);
+    g.add(part(ball(0.022, 10), metal(TIM.brass, 0.4), 0.062 * side, 0.025, 0.10));
+    return g;
+  };
+  torso.add(pauldron(-1), pauldron(1));
+
+  /* --- Arme: dick, mit Lederstulpe und Faust -------------------- */
+  const arm = side => {
+    const j = joint(0.268 * side, 0.445, 0);
+    j.add(part(capsule(0.086, 0.14, 16), cloth(TIM.tunic), 0, -0.09, 0));    // Ärmel
+    j.add(part(capsule(0.078, 0.11, 16), skin(PAL.skin), 0, -0.26, 0));      // Oberarm
+    const cuff = part(tube(0.092, 0.083, 0.17, 18), hide(TIM.leather), 0, -0.41, 0);
+    j.add(cuff);
+    j.add(part(ring(0.088, 0.012, 18), hide(TIM.leatherDk), 0, -0.492, 0));
+    const fist = part(ball(0.086, 16), skin(PAL.skin), 0, -0.56, 0.012);
+    fist.scale.set(0.92, 1.0, 1.06);
+    j.add(fist);
+    for(let k = 0; k < 3; k++)                                              // Knöchel
+      j.add(part(ball(0.026, 10), skin(PAL.skinDark),
+                 (-0.037 + k * 0.037) * side, -0.582, 0.076));
+    return j;
+  };
+  const armL = arm(-1), armR = arm(1);
+  torso.add(armL, armR);
+
+  /* --- Kopf: massig, kurzes Haar, kein Bart --------------------- */
+  torso.add(part(tube(0.098, 0.118, 0.16, 16), skin(PAL.skinDark), 0, 0.575, 0));
+  const head = joint(0, 0.690, 0);
+  torso.add(head);
+
+  const skullT = part(ball(0.158, 22), skin(PAL.skin), 0, 0.018, 0);
+  skullT.scale.set(1.0, 1.02, 0.97);
+  head.add(skullT);
+  // Schwere Wangen und Doppelkinn
+  const jowl = part(ball(0.138, 18), skin(PAL.skin), 0, -0.064, 0.018);
+  jowl.scale.set(1.06, 0.72, 0.98);
+  head.add(jowl);
+  head.add(part(ball(0.018, 10), skin(PAL.skin), 0, -0.016, 0.156));
+  head.add(part(box(0.056, 0.013, 0.020), cloth(0x7A4A40), 0, -0.070, 0.138));  // Mund
+
+  for(const ex of [-0.058, 0.058]){
+    head.add(part(ball(0.020, 12), mat(0xF2EDE4, { roughness:0.35 }), ex, 0.032, 0.132));
+    head.add(part(ball(0.010, 10), mat(0x4A3524, { roughness:0.3 }), ex, 0.032, 0.145));
+    const brow = part(box(0.052, 0.017, 0.022), cloth(0x3B2A1C), ex, 0.072, 0.138);
+    brow.rotation.z = ex > 0 ? -0.22 : 0.22;                                  // finsterer Blick
+    head.add(brow);
+  }
+
+  // Kurzes Haar, nach der bewährten Bauweise: Vollellipse nach hinten
+  // versetzt, damit vorn keine Mützenkante entsteht.
+  const hairT = part(ball(0.160, 22), cloth(0x40301F), 0, 0.044, -0.022);
+  hairT.scale.set(1.02, 0.96, 1.03);
+  head.add(hairT);
+  const napeT = part(ball(0.108, 16), cloth(0x40301F), 0, 0.010, -0.115);
+  napeT.scale.set(0.94, 0.82, 1.08);
+  head.add(napeT);
+  for(const sx of [-1, 1]){
+    const ear = part(ball(0.036, 12), skin(PAL.skinDark), 0.160 * sx, -0.004, 0.018);
+    ear.scale.set(0.40, 1.10, 0.80);
+    head.add(ear);
+  }
+
+  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop:null,
+                        poseL:0.10, poseR:0.10, height:1.86 };
+  return root;
+}
+
+/* ============================================================
    ALLGEMEINE FIGUREN
    ============================================================ */
 const ACCENT = {
@@ -1033,6 +1205,7 @@ function buildModelFor(cardId, card){
   if(cardId === "abdu")  return buildAbdu();
   if(cardId === "yunus") return buildYunus();
   if(cardId === "mertabi") return buildMertabi();
+  if(cardId === "timgioh") return buildTimgioh();
   if(card.kind === "building") return buildStructure(card, cardId);
   if(card.layer === "air") return buildFlyer(card, cardId);
   return buildWalker(card, cardId);
