@@ -42,6 +42,28 @@ def inline_assets(html: str) -> tuple[str, int, int]:
     return re.sub(r'"(assets/[^"]+)"', repl, html), count, total
 
 
+def inline_scripts(html: str) -> tuple[str, int]:
+    """Ersetzt <script src="..."> durch den Dateiinhalt."""
+    count = 0
+
+    def repl(m: re.Match) -> str:
+        nonlocal count
+        rel = m.group(1)
+        path = ROOT / rel
+        if not path.is_file():
+            print(f"  ! fehlt: {rel}", file=sys.stderr)
+            return m.group(0)
+        code = path.read_text(encoding="utf-8")
+        if "</script" in code.lower():
+            print(f"  ! {rel} enthaelt </script>, kann nicht eingebettet werden", file=sys.stderr)
+            return m.group(0)
+        count += 1
+        print(f"  + {rel}  {len(code)/1024:.0f} KB")
+        return "<script>\n%s\n</script>" % code
+
+    return re.sub(r'<script\s+src="([^"]+)"\s*>\s*</script>', repl, html), count
+
+
 def main() -> int:
     if not SRC.is_file():
         print("index.html nicht gefunden", file=sys.stderr)
@@ -55,6 +77,11 @@ def main() -> int:
 
     title = re.search(r"<title>(.*?)</title>", html)
     page = "<title>%s</title>\n%s" % (title.group(1) if title else "Spiel", inner)
+
+    print("Skripte einbetten:")
+    page, ns = inline_scripts(page)
+    if ns == 0:
+        print("  (keine)")
 
     print("Bilder einbetten:")
     page, n, raw_bytes = inline_assets(page)

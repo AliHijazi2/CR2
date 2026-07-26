@@ -87,9 +87,8 @@ body{
   width:100%;
 }
 canvas{
+  width:100%;
   height:100%;
-  aspect-ratio:18/32;
-  max-width:100%;
   border-radius:12px;
   border:1px solid var(--line);
   display:block;
@@ -258,6 +257,10 @@ canvas{
   </div>
 
 </div>
+
+<script src="vendor/three.min.js"></script>
+<script src="models.js"></script>
+<script src="render3d.js"></script>
 
 <script>
 "use strict";
@@ -917,242 +920,19 @@ function frame(now){
   if(dt > 0.25) dt = 0.25;          // nach Tab-Wechsel nicht aufholen
   acc += dt;
   while(acc >= FIXED){ tick(FIXED); acc -= FIXED; }
-  draw();
+  draw(dt);
   syncHud();
   requestAnimationFrame(frame);
 }
 
 /* ============================================================
    9 · DARSTELLUNG
+   Die 3D-Szene liegt in render3d.js, die Figuren in models.js.
+   Hier bleibt nur die Verbindung: das Canvas-Element selbst.
+   Die Spiellogik oben weiß von 3D nichts — sie rechnet weiter
+   in Kacheln, der Renderer liest den Zustand nur ab.
    ============================================================ */
 const cv = document.getElementById("cv");
-const ctx = cv.getContext("2d");
-let S = 20;                          // Pixel pro Kachel
-
-/* ---- Bildmaterial ---------------------------------------------------
-   Jede Karte darf statt des Emojis ein Bild tragen:
-
-     klingenwache:{ …, art:'assets/klingenwache.png', artScale:1.8 }
-
-   art      Pfad oder data:-URI zum Bild (Blickrichtung: nach unten)
-   artScale Höhe des Bildes als Vielfaches des Einheiten-Durchmessers
-            (1.0 = so hoch wie breit, ~1.8 für stehende Figuren)
-
-   Solange kein Bild da ist oder es nicht lädt, wird das Emoji gezeigt.
-   Dadurch bleibt das Spiel in jedem Zwischenzustand spielbar.
---------------------------------------------------------------------- */
-const artCache = new Map();
-function getArt(src){
-  if(!src) return null;
-  let entry = artCache.get(src);
-  if(!entry){
-    entry = { img:new Image(), ready:false };
-    entry.img.onload  = () => { entry.ready = true; };
-    entry.img.onerror = () => { console.warn("Bild nicht ladbar, Emoji bleibt:", src); };
-    entry.img.src = src;
-    artCache.set(src, entry);
-  }
-  return entry.ready ? entry.img : null;
-}
-
-/** Flacher Team-Ring am Boden — bei Bildfiguren die einzige Team-Kennung. */
-function teamDisc(cx, cy, r, team){
-  ctx.fillStyle = team === "blue" ? "rgba(76,125,255,.30)" : "rgba(255,90,60,.30)";
-  ctx.beginPath(); ctx.ellipse(cx, cy, r, r*0.42, 0, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = team === "blue" ? "#6E97FF" : "#FF8368";
-  ctx.lineWidth = Math.max(1.2, r*0.14);
-  ctx.beginPath(); ctx.ellipse(cx, cy, r, r*0.42, 0, 0, Math.PI*2); ctx.stroke();
-}
-
-function resize(){
-  const r = cv.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cv.width  = Math.round(r.width  * dpr);
-  cv.height = Math.round(r.height * dpr);
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  S = r.width / AW;
-}
-new ResizeObserver(resize).observe(cv);
-window.addEventListener("resize", resize);
-
-const px = x => x * S;
-const py = y => y * S;
-
-function roundRect(x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y);
-  ctx.arcTo(x+w,y,x+w,y+h,r);
-  ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r);
-  ctx.arcTo(x,y,x+w,y,r);
-  ctx.closePath();
-}
-
-function drawArena(){
-  const w = px(AW), h = py(AH);
-
-  ctx.fillStyle = "#16241F"; ctx.fillRect(0,0,w,py(RIVER.y0));
-  ctx.fillStyle = "#152722"; ctx.fillRect(0,py(RIVER.y1),w,h-py(RIVER.y1));
-
-  ctx.strokeStyle = "rgba(255,255,255,.028)"; ctx.lineWidth = 1;
-  for(let i=1;i<AW;i++){ ctx.beginPath(); ctx.moveTo(px(i),0); ctx.lineTo(px(i),h); ctx.stroke(); }
-  for(let i=1;i<AH;i++){ ctx.beginPath(); ctx.moveTo(0,py(i)); ctx.lineTo(w,py(i)); ctx.stroke(); }
-
-  // Fluss
-  const g = ctx.createLinearGradient(0,py(RIVER.y0),0,py(RIVER.y1));
-  g.addColorStop(0,"#17495C"); g.addColorStop(.5,"#1E6480"); g.addColorStop(1,"#17495C");
-  ctx.fillStyle = g;
-  ctx.fillRect(0,py(RIVER.y0),w,py(RIVER.y1-RIVER.y0));
-
-  // Brücken
-  for(const bx of BRIDGES){
-    ctx.fillStyle = "#6B563E";
-    ctx.fillRect(px(bx-BRIDGE_HALF), py(RIVER.y0-0.25), px(BRIDGE_HALF*2), py(RIVER.y1-RIVER.y0+0.5));
-    ctx.fillStyle = "rgba(0,0,0,.22)";
-    for(let i=0;i<5;i++){
-      ctx.fillRect(px(bx-BRIDGE_HALF), py(RIVER.y0-0.1+i*0.5), px(BRIDGE_HALF*2), 2);
-    }
-  }
-
-  // Platzierungszone, während eine Karte gewählt ist
-  if(W.selected >= 0 && !W.over){
-    const card = CARDS[W.blue.hand[W.selected]];
-    if(card && card.kind !== "spell"){
-      ctx.fillStyle = "rgba(76,125,255,.10)";
-      ctx.fillRect(0, py(RIVER.y1+0.2), w, h - py(RIVER.y1+0.2));
-      for(const t of W.towers){
-        if(t.team!=="red" || t.kind!=="crown" || !t.dead) continue;
-        const x0 = t.side === "left" ? 0 : px(AW/2);
-        ctx.fillRect(x0, py(2), px(AW/2), py(RIVER.y0-2));
-      }
-      ctx.strokeStyle = "rgba(76,125,255,.42)"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(0,py(RIVER.y1+0.2)); ctx.lineTo(w,py(RIVER.y1+0.2)); ctx.stroke();
-    } else if(card){
-      ctx.fillStyle = "rgba(255,180,90,.07)"; ctx.fillRect(0,0,w,h);
-    }
-  }
-
-  // Zielvorschau
-  if(W.aim && W.selected >= 0 && !W.over){
-    const card = CARDS[W.blue.hand[W.selected]];
-    const ok = card && canPlace("blue", card, W.aim.x, W.aim.y);
-    const r = card && card.kind === "spell" ? card.radius : (card ? Math.max(0.8,(card.count||1)*0.32) : 1);
-    ctx.strokeStyle = ok ? "rgba(120,255,190,.85)" : "rgba(255,90,60,.85)";
-    ctx.fillStyle   = ok ? "rgba(120,255,190,.13)" : "rgba(255,90,60,.13)";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(px(W.aim.x), py(W.aim.y), px(r), 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
-  }
-}
-
-/** top = Oberkante, über der der Balken schweben soll. Bei Bildfiguren ist
-    das der obere Bildrand, nicht der viel kleinere Kollisionskreis. */
-function hpBar(u, cx, cy, wide, top){
-  const w = wide ? px(u.radius*1.9) : px(Math.max(u.radius*2.1, 0.55));
-  const hgt = wide ? 5 : 3.2;
-  if(top === undefined) top = cy - px(u.radius);
-  const x = cx - w/2, y = top - hgt - 3;
-  ctx.fillStyle = "rgba(0,0,0,.55)"; roundRect(x-1,y-1,w+2,hgt+2,2); ctx.fill();
-  ctx.fillStyle = "#0C1412";        roundRect(x,y,w,hgt,1.6); ctx.fill();
-  ctx.fillStyle = u.team === "blue" ? "#4C7DFF" : "#FF5A3C";
-  roundRect(x,y,Math.max(0,w*(u.hp/u.maxHp)),hgt,1.6); ctx.fill();
-}
-
-function drawTower(t){
-  const cx = px(t.x), cy = py(t.y), r = px(t.radius);
-  ctx.fillStyle = "rgba(0,0,0,.35)";
-  roundRect(cx-r+2, cy-r+4, r*2, r*2, r*0.35); ctx.fill();
-  ctx.fillStyle = t.dead ? "#2A322F" : (t.team === "blue" ? "#243C7A" : "#6E2B1E");
-  roundRect(cx-r, cy-r, r*2, r*2, r*0.35); ctx.fill();
-  ctx.strokeStyle = t.dead ? "#3A4744" : (t.team === "blue" ? "#4C7DFF" : "#FF5A3C");
-  ctx.lineWidth = 2; roundRect(cx-r, cy-r, r*2, r*2, r*0.35); ctx.stroke();
-
-  ctx.font = `${r*1.15}px ${getComputedStyle(document.body).getPropertyValue("--font-emoji")}`;
-  ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.globalAlpha = t.dead ? 0.25 : 1;
-  ctx.fillText(t.dead ? "💥" : t.emoji, cx, cy);
-  ctx.globalAlpha = 1;
-
-  if(!t.dead){
-    if(t.asleep){
-      ctx.fillStyle = "rgba(10,18,16,.5)";
-      roundRect(cx-r, cy-r, r*2, r*2, r*0.35); ctx.fill();
-      ctx.font = `${r*0.5}px ${getComputedStyle(document.body).getPropertyValue("--font-emoji")}`;
-      ctx.fillText("💤", cx, cy + r*0.62);
-    }
-    hpBar(t, cx, cy, true);
-  }
-}
-
-function drawUnit(u){
-  const cx = px(u.x), cy = py(u.y), r = px(u.radius);
-
-  if(u.layer === "air"){
-    ctx.fillStyle = "rgba(0,0,0,.3)";
-    ctx.beginPath(); ctx.ellipse(cx, cy + r*1.5, r*0.75, r*0.3, 0, 0, Math.PI*2); ctx.fill();
-  }
-
-  ctx.globalAlpha = u.deploy > 0 ? 0.45 : 1;
-  const art = getArt(u.art);
-  let barTop;                       // Oberkante für den Lebensbalken
-  if(art){
-    // Figur: Team-Ring liegt am Boden, das Bild steht darauf.
-    teamDisc(cx, cy, r, u.team);
-    const h = r * 2 * (u.artScale || 1.8);
-    const w = h * (art.naturalWidth / art.naturalHeight || 1);
-    barTop = cy - h + r*0.42;
-    ctx.drawImage(art, cx - w/2, barTop, w, h);
-  } else {
-    ctx.fillStyle = u.team === "blue" ? "#2E4EA8" : "#9E3823";
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = u.team === "blue" ? "#6E97FF" : "#FF8368";
-    ctx.lineWidth = Math.max(1.4, r*0.16);
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
-
-    ctx.font = `${r*1.35}px ${getComputedStyle(document.body).getPropertyValue("--font-emoji")}`;
-    ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(u.emoji, cx, cy + r*0.06);
-  }
-  ctx.globalAlpha = 1;
-
-  if(u.frozen > 0){
-    ctx.fillStyle = "rgba(140,225,255,.4)";
-    ctx.beginPath(); ctx.arc(cx, cy, r*1.12, 0, Math.PI*2); ctx.fill();
-  }
-  if(u.lifetime > 0 && u.isBuilding){
-    ctx.strokeStyle = "rgba(240,193,75,.75)"; ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r*1.28, -Math.PI/2, -Math.PI/2 + Math.PI*2*(u.lifetime/(CARDS[u.cardId].lifetime)));
-    ctx.stroke();
-  }
-  hpBar(u, cx, cy, false, barTop);
-}
-
-function drawEffects(){
-  for(const e of W.effects){
-    const a = e.t / e.life;
-    if(e.kind === "ring"){
-      ctx.strokeStyle = e.color; ctx.globalAlpha = a * 0.85;
-      ctx.lineWidth = Math.max(2, px(0.14));
-      ctx.beginPath(); ctx.arc(px(e.x), py(e.y), px(e.r), 0, Math.PI*2); ctx.stroke();
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.fillStyle = "#FFE9A8"; ctx.globalAlpha = a;
-      ctx.beginPath(); ctx.arc(px(e.x), py(e.y), px(0.22)*(1.4-a), 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-  }
-}
-
-function draw(){
-  ctx.clearRect(0,0,cv.width,cv.height);
-  drawArena();
-  for(const t of W.towers) drawTower(t);
-  const movers = W.units.filter(u => !u.isTower && !u.dead);
-  movers.sort((a,b) => (a.layer === b.layer ? a.y - b.y : (a.layer === "air" ? 1 : -1)));
-  for(const u of movers) drawUnit(u);
-  drawEffects();
-}
 
 /* ============================================================
    10 · BEDIENUNG
@@ -1242,21 +1022,22 @@ function syncHud(){
   crRedEl.textContent  = W.red.crowns;
 }
 
+/** Zeigerposition auf die Bodenebene der 3D-Szene projizieren. */
 function toTile(ev){
-  const r = cv.getBoundingClientRect();
   const p = ev.touches ? ev.touches[0] : ev;
-  return { x:(p.clientX - r.left)/r.width * AW, y:(p.clientY - r.top)/r.height * AH };
+  return pickTile(p.clientX, p.clientY);
 }
 
 cv.addEventListener("pointermove", ev => {
   if(W.selected < 0 || W.over) return;
-  W.aim = toTile(ev);
+  W.aim = toTile(ev);          // null, wenn der Strahl den Boden verfehlt
 });
 cv.addEventListener("pointerleave", () => { W.aim = null; });
 cv.addEventListener("pointerdown", ev => {
   if(W.over || W.selected < 0) return;
   ev.preventDefault();
   const p = toTile(ev);
+  if(!p) return;
   W.aim = p;
   if(playCard("blue", W.selected, p.x, p.y)){
     W.selected = -1; W.aim = null; hintEl.hidden = true;
@@ -1293,7 +1074,9 @@ function showEnd(){
 }
 
 function start(){
+  initScene(cv);
   newWorld(difficulty);
+  resetScene();
   buildHand();
   resize();
   syncHud();
@@ -1308,9 +1091,12 @@ document.getElementById("startBtn").addEventListener("click", start);
 document.getElementById("againBtn").addEventListener("click", start);
 
 /* Startbild vorbereiten, damit die Arena schon zu sehen ist. */
+initScene(cv);
 newWorld(difficulty);
 buildHand();
-requestAnimationFrame(() => { resize(); draw(); syncHud(); });
+new ResizeObserver(resize).observe(cv);
+window.addEventListener("resize", resize);
+requestAnimationFrame(() => { resize(); draw(0.016); syncHud(); });
 </script>
 
 </body>
