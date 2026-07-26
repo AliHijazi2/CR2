@@ -244,17 +244,17 @@ Wird nach jeder neuen Karte aktualisiert. Rot = noch nicht abgedeckt.
 | Rolle | Ziel | Aktuell | Status |
 |---|---|---|---|
 | Tank / Frontlinie | 2–3 | 1 | 🔸 Abdu |
-| Einzelziel-Schaden | 3–4 | 1 | 🔸 Abdu |
+| Einzelziel-Schaden | 3–4 | 2 | 🔸 Abdu, Yunus |
 | Flächenschaden | 2–3 | 0 | ❌ |
 | Schwarm | 2–3 | 0 | ❌ |
-| Kann Luftziele treffen | ≥ 4 | 0 | ❌ |
+| Kann Luftziele treffen | ≥ 4 | 1 | 🔸 Yunus |
 | Lufteinheiten | 2–3 | 0 | ❌ |
 | Siegbedingung (nur Gebäude) | 1–2 | 0 | ❌ |
 | Zauber | 2–4 | 0 | ❌ |
 | Defensivgebäude | 1–2 | 0 | ❌ |
 
-**Dringendste Lücke:** Es gibt noch nichts, was Luftziele trifft. Solange das so
-bleibt, wäre jede fliegende Karte unschlagbar.
+**Dringendste Lücke:** Flächenschaden. Ohne ihn gewinnt jeder Schwarm, weil
+beide bisherigen Karten nur ein Ziel gleichzeitig treffen.
 
 ### 7.4 Karten
 
@@ -300,3 +300,44 @@ Lücke wäre er bei 4 💧 die beste Bodenkarte im Spiel ohne Gegenargument.
   Ablenkung durch billige Gebäude
 
 Er steckt im Startdeck des Spielers und hat dort die Klingenwache ersetzt.
+
+---
+
+#### 2 · Yunus Peace — Fernkämpfer, Bogen
+
+![Yunus Peace](../assets/yunus.png)
+
+Sportler statt Gepanzerter: Trikot, kurze Hose, Stutzen, Fußballschuhe.
+Vollbart, kräftige Brauen, grüne Augen. Köcher auf dem Rücken,
+Recurve-Bogen mit aufgelegtem Pfeil.
+
+| | |
+|---|---|
+| **Kosten** | 4 💧 |
+| **Lebenspunkte** | 520 |
+| **Schaden** | 200 pro Schuss |
+| **Angriff alle** | 1.15 s → **174 DPS** |
+| **Reichweite** | 5.8 |
+| **Tempo** | 1.2 (zwischen mittel und schnell) |
+| **Ebene / Ziele** | Boden / **Boden + Luft** |
+| **Bild** | `assets/yunus.png`, `artScale: 2.1` |
+
+**Warum genau diese Reichweite.** Zuerst hatte er 5.8 nicht, sondern 6.5 —
+und damit überschoss er *jede* Karte im Gegnerdeck (längste Reichweite dort:
+5.5). Zusammen mit Tempo 1.4 konnte er ausweichen und aus sicherer Distanz
+abräumen. Der Balance-Lauf zeigte die Folge deutlich: Die Schwierigkeitskurve
+drehte sich um, gegen „Schwer" gewann man plötzlich am leichtesten
+(57 / 44 / 60 % Spielersiege). Mit 5.8 und Tempo 1.2 steht die Ordnung
+wieder (45 / 31 / 32 %).
+
+**Im Konter-Netz:**
+- *Yunus schlägt:* Lufteinheiten, Schwärme aus der Distanz, alles Langsame
+- *Yunus verliert gegen:* alles, was ihn erreicht — 520 HP sind für 4 💧 wenig;
+  außerdem gegen Flächenschaden, sobald er in einer Gruppe steht
+
+Er ersetzt die Bogenschützinnen im Startdeck und schließt damit die
+Luftabwehr-Lücke.
+
+**Zu den Vorlagen:** Auf dem Referenzblatt sind ein Vereinswappen und das Logo
+einer realen Fluggesellschaft zu sehen. Beides ist im 3D-Modell **nicht**
+nachgebaut — übernommen sind nur Schnitt und Farben des Trikots.

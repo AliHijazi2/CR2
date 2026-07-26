@@ -443,9 +443,12 @@ function animate(v, rig, u, speed, dt){
   if(rig.torso) rig.torso.rotation.y = -s * (walking ? 0.11 : 0.02);
 
   // Arme: beim Laufen gegenläufig, beim Schlag nach vorn durchgezogen
+  // poseL/poseR: Grundstellung der Arme aus dem Modell (z.B. Schützenhaltung).
+  // Lauf- und Schlagbewegung werden daraufaddiert, nicht daruebergeschrieben.
   const swingEase = v.swing * v.swing;
-  if(rig.armR) rig.armR.rotation.x = -s * amp * 0.55 - swingEase * 2.3;
-  if(rig.armL) rig.armL.rotation.x =  s * amp * 0.55 - swingEase * 0.5;
+  const bL = rig.poseL || 0, bR = rig.poseR || 0;
+  if(rig.armR) rig.armR.rotation.x = bR - s * amp * 0.55 - swingEase * 2.3;
+  if(rig.armL) rig.armL.rotation.x = bL + s * amp * 0.55 - swingEase * 0.5;
   if(rig.torso) rig.torso.rotation.x = swingEase * 0.35;
   if(rig.head)  rig.head.rotation.x  = -swingEase * 0.2;
 }

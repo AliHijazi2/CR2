@@ -360,6 +360,223 @@ function buildAbdu(){
 }
 
 /* ============================================================
+   YUNUS PEACE — Fernkämpfer mit Bogen
+
+   Hinweis zu den Vorlagen: Auf dem Referenzblatt sind ein
+   Vereinswappen und das Logo einer realen Fluggesellschaft zu
+   sehen. Beides ist bewusst NICHT nachgebaut. Übernommen sind
+   nur Schnitt und Farben des Trikots, Bart, Bogen und Köcher.
+   ============================================================ */
+const KIT = { gold:0xF2C81E, navy:0x16386B, sock:0xEFEFEF, boot:0x171719,
+              bow:0x6E4526, shaft:0xBFA079, fletch:0xDCD6C7, beard:0x1E1510 };
+
+/** Senkrechte Trikotstreifen als Textur.
+    Bei einem Drehprofil läuft die u-Koordinate einmal um den Körper —
+    aus waagerechten Bändern im Bild werden dadurch senkrechte
+    Streifen am Trikot. Zwölf Bänder ergeben die Streifenbreite
+    der Vorlage. */
+let _kitMat = null;
+function kitMaterial(){
+  if(_kitMat) return _kitMat;
+  const c = document.createElement("canvas");
+  c.width = 384; c.height = 8;
+  const g = c.getContext("2d");
+  const bands = 12;
+  for(let i = 0; i < bands; i++){
+    g.fillStyle = i % 2 ? "#16386B" : "#F2C81E";
+    g.fillRect(Math.floor(i * 384 / bands), 0, Math.ceil(384 / bands) + 1, 8);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  _kitMat = new THREE.MeshStandardMaterial({ map:t, roughness:0.88, metalness:0.0 });
+  return _kitMat;
+}
+
+function buildYunus(){
+  const root = new THREE.Group();
+  const hips = joint(0, 0.62, 0);
+  root.add(hips);
+
+  /* --- Beine: Sportlerbeine mit Stutzen und Fußballschuh -------- */
+  const bootProfile = lathe("fbboot", [
+    [0.00, 0.00], [0.095, 0.008], [0.108, 0.045], [0.098, 0.09],
+    [0.080, 0.12], [0.078, 0.15], [0.00, 0.16],
+  ]);
+  const leg = side => {
+    const j = joint(0.115 * side, 0, 0);
+    j.add(part(capsule(0.068, 0.15, 14), skin(PAL.skin), 0, -0.19, 0));        // Oberschenkel
+    j.add(part(ball(0.056, 14), skin(PAL.skinDark), 0, -0.325, 0.006));        // Knie
+    j.add(part(capsule(0.058, 0.10, 14), skin(PAL.skin), 0, -0.395, 0));       // Wade oben
+    const sock = part(capsule(0.058, 0.13, 14), cloth(KIT.navy), 0, -0.50, 0); // Stutzen
+    const band = part(tube(0.062, 0.062, 0.05, 14), cloth(KIT.sock), 0, -0.415, 0);
+    const foot = part(bootProfile, cloth(KIT.boot), 0, -0.60, 0.015);
+    foot.scale.set(1.05, 1.0, 1.75);
+    j.add(sock, band, foot);
+    return j;
+  };
+  const legL = leg(-1), legR = leg(1);
+  hips.add(legL, legR);
+
+  // Hose sitzt an der Hüfte, nicht am Bein — sonst schwingt sie mit
+  const shorts = part(lathe("fbshorts", [
+    [0.000, 0.00], [0.185, 0.01], [0.192, 0.09], [0.168, 0.18], [0.000, 0.19],
+  ], 18), cloth(KIT.navy), 0, -0.19, 0);
+  shorts.scale.set(1.08, 1, 0.92);
+  hips.add(shorts);
+
+  /* --- Rumpf im Streifentrikot ---------------------------------- */
+  const torso = joint(0, 0.02, 0);
+  hips.add(torso);
+  const jersey = part(lathe("fbtorso", [
+    [0.000, 0.00], [0.132, 0.01], [0.142, 0.08], [0.128, 0.18],
+    [0.152, 0.28], [0.174, 0.37], [0.166, 0.44], [0.128, 0.48], [0.000, 0.49],
+  ], 22), kitMaterial(), 0, 0, 0);
+  jersey.scale.set(1.12, 1, 0.84);          // sportlich: breit, aber flach
+  torso.add(jersey);
+
+  // Kragen
+  const collar = part(ring(0.085, 0.018, 18), cloth(KIT.navy), 0, 0.475, 0.005);
+  collar.rotation.x = Math.PI/2; collar.scale.set(1.15, 1, 0.9);
+  torso.add(collar);
+
+  /* --- Köcher auf dem Rücken ------------------------------------ */
+  const quiver = joint(-0.125, 0.28, -0.150);
+  quiver.rotation.set(0.22, 0, -0.30);
+  torso.add(quiver);
+  quiver.add(part(tube(0.058, 0.052, 0.34, 14), hide(PAL.leather), 0, 0, 0));
+  quiver.add(part(ring(0.058, 0.012, 14), hide(PAL.leatherDk), 0, 0.10, 0));
+  for(let i = 0; i < 5; i++){
+    const a = i * 1.257, r = 0.030;
+    const px2 = Math.sin(a) * r, pz2 = Math.cos(a) * r;
+    quiver.add(part(tube(0.007, 0.007, 0.40, 6), hide(KIT.shaft), px2, 0.24, pz2));
+    for(let f = 0; f < 3; f++){
+      const fa = f * 2.094;
+      const fl = part(box(0.006, 0.075, 0.038), cloth(KIT.fletch),
+                      px2 + Math.sin(fa)*0.014, 0.40, pz2 + Math.cos(fa)*0.014);
+      fl.rotation.y = fa;
+      quiver.add(fl);
+    }
+  }
+
+  /* --- Arme: kurze Trikotärmel, dann Haut ----------------------- */
+  const arm = side => {
+    const j = joint(0.205 * side, 0.40, 0);
+    // Rohr statt Kapsel: an den Kugelkappen einer Kapsel laufen die
+    // Bildkoordinaten sternförmig zusammen — die Streifen würden dort
+    // zu einem Windrad. Beim Rohr laufen sie sauber senkrecht um.
+    const sleeve = part(tube(0.076, 0.066, 0.15, 16), kitMaterial(), 0.010 * side, -0.055, 0);
+    const cuff = part(ring(0.066, 0.010, 16), cloth(KIT.navy), 0.010 * side, -0.128, 0);
+    cuff.rotation.x = Math.PI/2;
+    // Schulterkappe einfarbig: die offene Deckflaeche des Rohrs zeigte
+    // von oben sonst waagerechte Baender statt Streifen.
+    const cap = part(dome(0.078, 16), cloth(KIT.navy), 0.010 * side, 0.016, 0);
+    cap.scale.set(1, 0.72, 1);
+    j.add(sleeve, cuff, cap);
+    j.add(part(capsule(0.052, 0.15, 14), skin(PAL.skin), 0, -0.155, 0));
+    j.add(part(ball(0.047, 12), skin(PAL.skinDark), 0, -0.255, 0));
+    j.add(part(capsule(0.045, 0.14, 14), skin(PAL.skin), 0, -0.345, 0));
+    const hand = part(ball(0.052, 14), skin(PAL.skin), 0, -0.44, 0);
+    hand.scale.set(0.85, 1.05, 1.1);
+    j.add(hand);
+    return j;
+  };
+  const armL = arm(-1), armR = arm(1);
+  torso.add(armL, armR);
+
+  /* --- Bogen in der linken Hand ---------------------------------
+     Vier Gelenke, jedes mit genau einer Drehung — so bleibt
+     nachvollziehbar, was welche Achse tut. Eine einzelne
+     rotation.set(x,y,z) hatte hier die Kantung VOR dem Aufstellen
+     angewandt, wodurch der Bogen flach lag.                      */
+  const bowMount = joint(0, -0.45, 0.04);
+  armL.add(bowMount);
+  bowMount.rotation.x = 1.14;              // hebt die Armneigung wieder auf
+  const bowCant = joint(0, 0, 0);
+  bowMount.add(bowCant);
+  bowCant.rotation.z = 0.50;               // gekantet, damit er von oben lesbar bleibt
+  const bow = joint(0, 0, 0);
+  bowCant.add(bow);
+  bow.rotation.y = -Math.PI/2;             // Wurfarme senkrecht, Bauch nach vorn
+
+  const ARC = Math.PI * 1.1, RAD = 0.295;
+  const limb = part(geo("fbbow2", () => new THREE.TorusGeometry(RAD, 0.016, 8, 28, ARC)),
+                    hide(KIT.bow), 0, 0, 0);
+  limb.rotation.z = -ARC/2;                // Bogenbauch auf +X zentrieren
+  bow.add(limb);
+  bow.add(part(ball(0.030, 12), hide(PAL.leatherDk), RAD, 0, 0));       // Griff
+  const chordX = RAD * Math.cos(ARC/2), chordL = 2 * RAD * Math.sin(ARC/2);
+  bow.add(part(tube(0.004, 0.004, chordL, 6), cloth(0xE8E2D4), chordX, 0, 0));
+  // Aufgelegter Pfeil, waagerecht durch den Griff nach vorn
+  const shaft = part(tube(0.006, 0.006, 0.52, 6), hide(KIT.shaft), RAD * 0.30, 0.0, 0);
+  shaft.rotation.z = Math.PI/2;
+  bow.add(shaft);
+  const tip = part(spike(0.019, 0.06, 8), metal(PAL.steelDark, 0.35), RAD * 0.30 + 0.29, 0, 0);
+  tip.rotation.z = -Math.PI/2;
+  bow.add(tip);
+
+  /* --- Kopf ------------------------------------------------------ */
+  torso.add(part(tube(0.058, 0.070, 0.11, 14), skin(PAL.skinDark), 0, 0.525, 0));
+  const head = joint(0, 0.665, 0);
+  torso.add(head);
+
+  const skull = part(ball(0.145, 22), skin(PAL.skin), 0, 0.015, 0);
+  skull.scale.set(1.0, 1.06, 0.97);
+  head.add(skull);
+  head.add(part(ball(0.016, 10), skin(PAL.skin), 0, -0.012, 0.146));            // Nase
+
+  // Vollbart: etwas größer als der Schädel, damit er an den Wangen sichtbar wird
+  const beard = part(ball(0.150, 20), cloth(KIT.beard), 0, -0.072, 0.012);
+  beard.scale.set(1.02, 0.60, 0.95);
+  head.add(beard);
+  const mous = part(capsule(0.022, 0.062, 10), cloth(KIT.beard), 0, -0.032, 0.124);
+  mous.rotation.z = Math.PI/2;
+  head.add(mous);
+  head.add(part(box(0.042, 0.012, 0.02), cloth(0x2B1F18), 0, -0.062, 0.132));   // Mund
+
+  // Augen: grün, mit kräftigen Brauen
+  for(const ex of [-0.055, 0.055]){
+    head.add(part(ball(0.020, 12), mat(0xF4F0E7, { roughness:0.35 }), ex, 0.030, 0.118));
+    head.add(part(ball(0.011, 10), mat(0x4F6B32, { roughness:0.3 }), ex, 0.030, 0.132));
+    const brow = part(box(0.050, 0.017, 0.022), cloth(KIT.beard), ex, 0.072, 0.126);
+    brow.rotation.z = ex > 0 ? -0.20 : 0.20;
+    head.add(brow);
+  }
+
+  // Haar: dieselbe Bauweise wie bei Abdu — Vollellipse nach hinten
+  // versetzt, damit keine Mützenkante entsteht — plus Spitzen obenauf.
+  const hairMat = cloth(PAL.hair);
+  // Die Tiefe der Haarellipse muss KLEINER bleiben als die des Schädels,
+  // sonst ragt sie über die Stirn. Schädel-Tiefe hier: 0.145 * 0.97 = 0.141.
+  const hair = part(ball(0.147, 22), hairMat, 0, 0.044, -0.028);
+  hair.scale.set(1.02, 0.99, 1.03);
+  head.add(hair);
+  const bulk = part(ball(0.100, 16), hairMat, 0, 0.020, -0.110);
+  bulk.scale.set(0.94, 0.82, 1.12);
+  head.add(bulk);
+  for(const sx of [-1, 1]){
+    const temple = part(ball(0.082, 14), hairMat, 0.122 * sx, 0.060, -0.050);
+    temple.scale.set(0.34, 0.66, 1.0);
+    head.add(temple);
+  }
+  // Spitzen: nach oben hinten stehendes Deckhaar
+  for(let i = 0; i < 9; i++){
+    const dx = (i / 8 - 0.5) * 0.19;
+    const sp = part(capsule(0.020, 0.075, 8), hairMat,
+                    dx, 0.168 - Math.abs(dx) * 0.42, 0.026 - Math.abs(dx) * 0.14);
+    sp.rotation.x = -0.85 - Math.abs(dx) * 0.5;
+    sp.rotation.z = -dx * 3.2;
+    head.add(sp);
+  }
+
+  // Grundstellung: linker Arm hält den Bogen vor, rechter zieht die Sehne.
+  // Der Renderer addiert Lauf- und Schlagbewegung auf diese Werte.
+  root.userData.rig = { hips, torso, head, legL, legR, armL, armR, prop:bow,
+                        poseL:-1.05, poseR:-0.88, height:1.58 };
+  return root;
+}
+
+/* ============================================================
    ALLGEMEINE FIGUREN
    ============================================================ */
 const ACCENT = {
@@ -632,7 +849,8 @@ function buildTower(kind, team){
    AUSWAHL
    ============================================================ */
 function buildModelFor(cardId, card){
-  if(cardId === "abdu") return buildAbdu();
+  if(cardId === "abdu")  return buildAbdu();
+  if(cardId === "yunus") return buildYunus();
   if(card.kind === "building") return buildStructure(card, cardId);
   if(card.layer === "air") return buildFlyer(card, cardId);
   return buildWalker(card, cardId);
