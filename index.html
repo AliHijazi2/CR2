@@ -517,50 +517,14 @@ const CARDS = {
     hp:720, damage:160, hitSpeed:1.6, range:4.2, speed:1.0,
     layer:"air", targets:"both", splash:1.5, radius:0.5 },
 
-  /* --- Nahkampf & Tanks --- */
-  steinwaechter:{ name:"Steinwächter", emoji:"🗿", cost:5, kind:"troop", count:1,
-    hp:3200, damage:220, hitSpeed:1.5, range:1.2, speed:0.7, layer:"ground", targets:"ground", radius:0.55 },
-  klingenwache:{ name:"Klingenwache", emoji:"🗡️", cost:3, kind:"troop", count:1,
-    hp:1400, damage:160, hitSpeed:1.2, range:1.2, speed:1.0, layer:"ground", targets:"ground", radius:0.42 },
-  rammbock:{ name:"Rammbock", emoji:"🐗", cost:4, kind:"troop", count:1,
-    hp:1900, damage:300, hitSpeed:1.5, range:1.2, speed:1.4, layer:"ground", targets:"buildings", radius:0.5 },
-
-  /* --- Schwarm --- */
-  rattenrudel:{ name:"Rattenrudel", emoji:"🐀", cost:1, kind:"troop", count:4,
-    hp:90, damage:60, hitSpeed:0.9, range:1.2, speed:1.8, layer:"ground", targets:"ground", radius:0.26 },
-  strassenbande:{ name:"Straßenbande", emoji:"🔪", cost:2, kind:"troop", count:3,
-    hp:220, damage:105, hitSpeed:1.1, range:1.2, speed:1.4, layer:"ground", targets:"ground", radius:0.31 },
-  speerbrueder:{ name:"Speerbrüder", emoji:"🪃", cost:2, kind:"troop", count:3,
-    hp:130, damage:60, hitSpeed:1.1, range:5.0, speed:1.0, layer:"ground", targets:"both", radius:0.29 },
-
-  /* --- Fernkampf --- */
-  bogenschuetzinnen:{ name:"Bogenschützinnen", emoji:"🏹", cost:3, kind:"troop", count:2,
-    hp:300, damage:95, hitSpeed:1.2, range:5.5, speed:1.0, layer:"ground", targets:"both", radius:0.33 },
-  feuermagier:{ name:"Feuermagier", emoji:"🔥", cost:4, kind:"troop", count:1,
-    hp:620, damage:250, hitSpeed:1.6, range:5.5, speed:1.0, layer:"ground", targets:"both", splash:1.3, radius:0.42 },
-  fernrohrschuetzin:{ name:"Fernrohrschützin", emoji:"🔭", cost:4, kind:"troop", count:1,
-    hp:420, damage:400, hitSpeed:2.4, range:9.0, speed:0.7, layer:"ground", targets:"both", radius:0.4 },
-
-  /* --- Luft --- */
-  sturmfalke:{ name:"Sturmfalke", emoji:"🦅", cost:4, kind:"troop", count:1,
-    hp:900, damage:140, hitSpeed:1.4, range:2.5, speed:1.0, layer:"air", targets:"both", splash:1.2, radius:0.48 },
-  fledermausschwarm:{ name:"Fledermäuse", emoji:"🦇", cost:2, kind:"troop", count:5,
-    hp:70, damage:55, hitSpeed:0.9, range:1.2, speed:1.8, layer:"air", targets:"both", radius:0.25 },
-  glockenballon:{ name:"Glockenballon", emoji:"🎈", cost:5, kind:"troop", count:1,
-    hp:1700, damage:700, hitSpeed:3.0, range:1.5, speed:0.7, layer:"air", targets:"buildings", radius:0.5,
-    deathBlast:{ damage:300, radius:2.0 } },
-
-  /* --- Zauber (Türme nehmen nur 35 %) --- */
-  splitterregen:{ name:"Splitterregen", emoji:"🌧️", cost:3, kind:"spell", radius:3.5, damage:250 },
-  feuerball:{ name:"Feuerball", emoji:"☄️", cost:4, kind:"spell", radius:2.5, damage:600, knockback:1.3 },
-  blitzschlag:{ name:"Blitzschlag", emoji:"⚡", cost:5, kind:"spell", radius:1.8, damage:900 },
-  frostwelle:{ name:"Frostwelle", emoji:"❄️", cost:2, kind:"spell", radius:3.0, damage:80, freeze:2.5 },
-
-  /* --- Gebäude --- */
-  speerturm:{ name:"Speerturm", emoji:"🏯", cost:4, kind:"building", count:1,
-    hp:1050, damage:110, hitSpeed:0.9, range:6.5, speed:0, layer:"ground", targets:"both", lifetime:35, radius:0.72 },
-  bollwerk:{ name:"Bollwerk", emoji:"🧱", cost:3, kind:"building", count:1,
-    hp:2200, damage:0, hitSpeed:1, range:0, speed:0, layer:"ground", targets:"ground", lifetime:30, radius:0.8 },
+  /* --- Zauber (Türme nehmen nur 35 %) -------------------------------
+     Die einzigen Nicht-Charakter-Karten, die bleiben. Alle früheren
+     Platzhalter-Karten sind entfernt; im Deck stehen die sechs eigenen
+     Charaktere plus diese beiden Zauber.                              */
+  feuerball:{ name:"Feuerball", emoji:"☄️", card:"assets/cards/feuerball.jpg",
+    cost:4, kind:"spell", radius:2.5, damage:600, knockback:1.3 },
+  frostwelle:{ name:"Frostwelle", emoji:"❄️", card:"assets/cards/frostwelle.jpg",
+    cost:2, kind:"spell", radius:3.0, damage:80, freeze:2.5 },
 };
 
 const TOWER_STATS = {
@@ -568,18 +532,14 @@ const TOWER_STATS = {
   king: { name:"Königsturm",  emoji:"👑", hp:4000, damage:110, hitSpeed:1.0, range:7.0, radius:1.25 },
 };
 
-// Alle sechs eigenen Charaktere stehen in beiden Decks (Abdu, Yunus,
-// Mertabi, Timgioh, Azizis, Abu Goku) — Abu Goku nimmt den Luft-Platz
-// ein, beim Spieler statt der Fledermaeuse, beim Gegner statt des
-// Sturmfalken. Bleiben je zwei Fueller-Plaetze.
+// Es gibt jetzt genau acht Karten: die sechs eigenen Charaktere plus die
+// beiden Zauber Feuerball und Frostwelle. Beide Seiten spielen dasselbe
+// volle Set — bei acht Karten gibt es keine andere Wahl. Sobald wieder
+// mehr Karten dazukommen, koennen sich die Decks wieder unterscheiden.
 const DECK_BLUE = ["abdu","yunus","mertabi","timgioh",
-                   "azizis","abugoku","feuerball","speerturm"];
-// Der Gegner spielt dieselben eigenen Charaktere wie du — sonst waeren
-// sie nur Deko im Spielerdeck. Die uebrigen zwei Plaetze sind bewusst
-// anders besetzt als in DECK_BLUE, damit sich die Partien unterscheiden:
-// Rammbock als Siegbedingung, Splitterregen als Zauber.
+                   "azizis","abugoku","feuerball","frostwelle"];
 const DECK_RED  = ["abdu","yunus","mertabi","timgioh",
-                   "azizis","abugoku","rammbock","splitterregen"];
+                   "azizis","abugoku","feuerball","frostwelle"];
 
 /* DECK_BLUE ist nur noch die Voreinstellung. Das tatsaechlich gespielte
    Deck stellt der Spieler im Baukasten zusammen; es wird in localStorage

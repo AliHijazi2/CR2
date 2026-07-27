@@ -391,25 +391,26 @@ bestehenden Spiels eingeblendet. Die sind **nicht** nachgebaut.
 
 ## 8. Decks
 
-Beide Seiten spielen dieselben eigenen Charaktere — sonst wären sie nur
-Deko im Spielerdeck. Die übrigen drei Plätze unterscheiden sich, damit
-sich die Partien nicht spiegeln.
+**Stand: alle Platzhalter entfernt.** Es gibt nur noch acht Karten — die
+sechs eigenen Charaktere plus die beiden Zauber Feuerball und Frostwelle
+(beide mit eigenem Artwork). Alle früher von mir gebauten Platzhalter
+(Steinwächter, Klingenwache, Rammbock, Rattenrudel, Straßenbande,
+Speerbrüder, Bogenschützinnen, Feuermagier, Fernrohrschützin, Sturmfalke,
+Fledermäuse, Glockenballon, Splitterregen, Blitzschlag, Speerturm,
+Bollwerk) sind gelöscht.
+
+Bei genau acht Karten spielen beide Seiten zwangsläufig dasselbe Set:
 
 | | Du (blau) | Gegner (rot) |
 |---|---|---|
-| Eigene Charaktere | Abdu · Yunus · Mertabi | Abdu · Yunus · Mertabi |
-| Tank | Timgioh | Timgioh |
-| Schwarm | Azizis | Azizis |
-| Luft | Abu Goku | Abu Goku |
-| Siegbedingung | — | Rammbock |
-| Zauber | Feuerball | Splitterregen |
-| Gebäude | Speerturm | — |
-| **Ø Kosten** | 3.9 💧 | 3.6 💧 |
+| Eigene Charaktere | Abdu · Yunus · Mertabi · Timgioh · Azizis · Abu Goku | dieselben |
+| Zauber | Feuerball · Frostwelle | dieselben |
+| **Ø Kosten** | 3.6 💧 | 3.6 💧 |
 
-Mit Abu Goku stehen jetzt alle **sechs** eigenen Charaktere in beiden
-Decks; sowohl der Schwarm- als auch der Luft-Platz wird nicht mehr von
-Platzhaltern gefüllt. Je zwei Fremdrollen bleiben (Zauber und Gebäude bzw.
-Siegbedingung und Zauber), damit sich die Partien nicht spiegeln.
+Sobald wieder mehr Karten dazukommen, können sich die Decks erneut
+unterscheiden (der Deck-Baukasten und das feste Gegner-Deck sind dafür
+schon angelegt). Die Beschreibungen der Platzhalter weiter oben in diesem
+Dokument sind ab hier nur noch Entwurfs-Geschichte.
 
 **Auseinanderhalten:** Da beide Seiten dieselben Modelle benutzen, bekommen
 gegnerische Figuren einen Rotstich (13 % Mischung) und eine orange
