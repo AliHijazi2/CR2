@@ -274,6 +274,18 @@ canvas{
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 .menuBtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;}
+/* Stumm-Knopf oben rechts im Menü — innerhalb der sicheren Zone. */
+.menu .iconbtn{
+  position:absolute;
+  top:calc(14px + env(safe-area-inset-top));
+  right:calc(14px + env(safe-area-inset-right));
+  width:42px;height:42px;border-radius:50%;
+  background:var(--panel);border:1px solid var(--line);
+  font-size:19px;line-height:1;cursor:pointer;color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+}
+.menu .iconbtn:hover{background:var(--panel-hi);}
+.menu .iconbtn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
 .btn.ghost{background:var(--panel);color:var(--text);border:1px solid var(--line);}
 .btn.ghost:hover{background:var(--panel-hi);filter:none;}
 .btn:disabled{opacity:.4;cursor:default;filter:none;}
@@ -353,6 +365,7 @@ canvas{
     <div id="hint" hidden></div>
 
     <div class="veil menu" id="menuVeil">
+      <button class="iconbtn" id="muteBtn" type="button" aria-label="Ton an oder aus">🔊</button>
       <div class="menuTop">
         <h1>Twitch Royale</h1>
       </div>
@@ -584,6 +597,58 @@ const DIFFICULTY = [
   { name:"Normal", interval:1.0, savings:6, sloppiness:0.2, skip:0.10, aim:1.2, combo:0.45, patience:600  },
   { name:"Schwer", interval:0.4, savings:6, sloppiness:0.0, skip:0.0,  aim:0.0, combo:1.0,  patience:1000 },
 ];
+
+/* ============================================================
+   SOUND
+   Kurze Effekte über die Web Audio API: jeder Clip wird einmal
+   dekodiert und lässt sich danach beliebig oft und überlappend
+   abspielen — anders als ein <audio>-Element, das beim schnellen
+   Nachtriggern stockt.
+
+   Auf dem Handy darf Ton erst NACH einer Nutzer-Geste starten.
+   Deshalb wird der Audio-Kontext beim ersten Tippen (Spielen, Karte,
+   Stumm-Knopf) freigeschaltet — vorher passiert nichts.
+
+   Die Pfade sind normale "assets/..."-Strings, also bettet der
+   Web-Build sie wie die Bilder als data-URI ein.                 */
+const SFX = {
+  abduHit: "assets/sfx/abdu_hit.mp3",
+};
+const Sound = (() => {
+  let ctx = null, master = null;
+  let muted = loadSettings().muted === true;
+  const buffers = {};
+  const last = {};
+
+  function init(){
+    if(ctx) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0.8;
+    master.connect(ctx.destination);
+    for(const k in SFX){
+      fetch(SFX[k]).then(r => r.arrayBuffer())
+        .then(ab => ctx.decodeAudioData(ab))
+        .then(buf => { buffers[k] = buf; })
+        .catch(() => {});                    // fehlender Clip macht das Spiel nicht kaputt
+    }
+  }
+  function unlock(){ init(); if(ctx && ctx.state === "suspended") ctx.resume(); }
+  function play(k){
+    if(muted || !ctx || !buffers[k]) return;
+    const now = ctx.currentTime;
+    if(last[k] && now - last[k] < 0.04) return;   // nicht im selben Moment doppelt
+    last[k] = now;
+    const s = ctx.createBufferSource();
+    s.buffer = buffers[k];
+    s.connect(master);
+    s.start();
+  }
+  function toggle(){ muted = !muted; saveSettings({ muted }); return muted; }
+  return { unlock, play, toggle, isMuted: () => muted };
+})();
 
 /* ============================================================
    2 · ARENA
@@ -909,6 +974,7 @@ function combat(dt){
       if(d <= reach){
         if(u.cd <= 0 && u.damage > 0){
           u.cd = u.hitSpeed;
+          if(u.cardId === "abdu") Sound.play("abduHit");   // Schlag-Sound
           if(u.splash){
             areaDamage(u.team, u.target.x, u.target.y, u.splash, u.damage, 1, 0, 0, "#FF9A4C", u.targets);
           } else {
@@ -1413,6 +1479,7 @@ function showEnd(){
 
 /* ----- Kampf starten ----- */
 function start(){
+  Sound.unlock();               // Klick auf „Spielen“ ist die Nutzer-Geste
   initScene(cv);
   newWorld(difficulty);
   resetScene();
@@ -1425,6 +1492,18 @@ function start(){
   acc = 0; last = 0;
   if(!running){ running = true; requestAnimationFrame(frame); }
 }
+
+/* ----- Ton ----- */
+const muteBtn = document.getElementById("muteBtn");
+function reflectMute(){
+  muteBtn.textContent = Sound.isMuted() ? "🔇" : "🔊";
+  muteBtn.classList.toggle("off", Sound.isMuted());
+}
+muteBtn.addEventListener("click", () => { Sound.unlock(); Sound.toggle(); reflectMute(); });
+reflectMute();
+// Ton auf dem Handy erst nach einer Geste erlaubt: bei jeder Berührung
+// freischalten (mehrfach aufrufen ist harmlos).
+cv.addEventListener("pointerdown", () => Sound.unlock());
 
 document.getElementById("playBtn").addEventListener("click", start);
 document.getElementById("deckBtn").addEventListener("click", openDeck);
