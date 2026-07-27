@@ -9060,6 +9060,28 @@ const Sound = (() => {
   const buffers = {};
   const last = {};
 
+  /* Rohdaten eines Clips besorgen. Im gebauten Spiel sind die Clips als
+     data:-URI eingebettet — die dürfen NICHT per fetch() geladen werden:
+     die Sicherheitsrichtlinie der Artifact-Seite blockiert fetch auf
+     data:-URIs, der Fehler wird still verschluckt und es kommt kein Ton.
+     Deshalb wird base64 hier direkt dekodiert; nur echte Pfade (lokale
+     Entwicklung, PWA über http) gehen über fetch. */
+  function rawBytes(src){
+    if(src.slice(0, 5) === "data:"){
+      const bin = atob(src.slice(src.indexOf(",") + 1));
+      const bytes = new Uint8Array(bin.length);
+      for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return Promise.resolve(bytes.buffer);
+    }
+    return fetch(src).then(r => r.arrayBuffer());
+  }
+  function decode(ab){
+    // Promise- und Callback-Form: ältere Safari-Versionen liefern kein Promise.
+    return new Promise((res, rej) => {
+      const p = ctx.decodeAudioData(ab, res, rej);
+      if(p && p.then) p.then(res, rej);
+    });
+  }
   function init(){
     if(ctx) return;
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -9069,8 +9091,7 @@ const Sound = (() => {
     master.gain.value = 0.8;
     master.connect(ctx.destination);
     for(const k in SFX){
-      fetch(SFX[k]).then(r => r.arrayBuffer())
-        .then(ab => ctx.decodeAudioData(ab))
+      rawBytes(SFX[k]).then(decode)
         .then(buf => { buffers[k] = buf; })
         .catch(() => {});                    // fehlender Clip macht das Spiel nicht kaputt
     }
