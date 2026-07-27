@@ -612,13 +612,16 @@ const DIFFICULTY = [
    Die Pfade sind normale "assets/..."-Strings, also bettet der
    Web-Build sie wie die Bilder als data-URI ein.                 */
 const SFX = {
-  abduHit: "assets/sfx/abdu_hit.mp3",
+  abduHit:    "assets/sfx/abdu_hit.mp3",
+  timgiohHit: "assets/sfx/timgioh_hit.mp3",
 };
+// Welche Karte spielt bei einem Schlag welchen Sound. Neue Charakter-
+// Sounds kommen einfach hier dazu — der Kampf-Code bleibt gleich.
+const HIT_SFX = { abdu:"abduHit", timgioh:"timgiohHit" };
 const Sound = (() => {
   let ctx = null, master = null;
   let muted = loadSettings().muted === true;
   const buffers = {};
-  const last = {};
 
   /* Rohdaten eines Clips besorgen. Im gebauten Spiel sind die Clips als
      data:-URI eingebettet — die dürfen NICHT per fetch() geladen werden:
@@ -670,11 +673,11 @@ const Sound = (() => {
       s.start(0);
     } catch(e){}
   }
+  // Jeder Aufruf erzeugt eine EIGENE Klangquelle — beliebig viele Sounds
+  // (verschiedene oder gleiche) klingen damit gleichzeitig. Drei Kämpfe
+  // auf dem Feld ergeben drei parallele Geräusche.
   function play(k){
     if(muted || !ctx || !buffers[k]) return;
-    const now = ctx.currentTime;
-    if(last[k] && now - last[k] < 0.04) return;   // nicht im selben Moment doppelt
-    last[k] = now;
     const s = ctx.createBufferSource();
     s.buffer = buffers[k];
     s.connect(master);
@@ -1008,7 +1011,7 @@ function combat(dt){
       if(d <= reach){
         if(u.cd <= 0 && u.damage > 0){
           u.cd = u.hitSpeed;
-          if(u.cardId === "abdu") Sound.play("abduHit");   // Schlag-Sound
+          if(HIT_SFX[u.cardId]) Sound.play(HIT_SFX[u.cardId]);   // Schlag-Sound
           if(u.splash){
             areaDamage(u.team, u.target.x, u.target.y, u.splash, u.damage, 1, 0, 0, "#FF9A4C", u.targets);
           } else {
