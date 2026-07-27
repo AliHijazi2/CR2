@@ -9075,7 +9075,20 @@ const Sound = (() => {
         .catch(() => {});                    // fehlender Clip macht das Spiel nicht kaputt
     }
   }
-  function unlock(){ init(); if(ctx && ctx.state === "suspended") ctx.resume(); }
+  function unlock(){
+    init();
+    if(!ctx) return;
+    if(ctx.state === "suspended") ctx.resume();
+    // iOS-Aufwecker: einen 1-Sample-Stummton im Rahmen der Geste starten.
+    // Ohne das bleibt die Audio-Hardware bei manchen iPhones schlafen,
+    // selbst wenn der Kontext schon "running" meldet.
+    try {
+      const s = ctx.createBufferSource();
+      s.buffer = ctx.createBuffer(1, 1, 22050);
+      s.connect(ctx.destination);
+      s.start(0);
+    } catch(e){}
+  }
   function play(k){
     if(muted || !ctx || !buffers[k]) return;
     const now = ctx.currentTime;
@@ -9941,9 +9954,12 @@ function reflectMute(){
 }
 muteBtn.addEventListener("click", () => { Sound.unlock(); Sound.toggle(); reflectMute(); });
 reflectMute();
-// Ton auf dem Handy erst nach einer Geste erlaubt: bei jeder Berührung
-// freischalten (mehrfach aufrufen ist harmlos).
-cv.addEventListener("pointerdown", () => Sound.unlock());
+// Ton auf dem Handy erst nach einer Geste erlaubt: bei JEDER Art von
+// Berührung freischalten (mehrfach aufrufen ist harmlos). Ausserdem nach
+// Rückkehr aus dem Hintergrund den Kontext wieder aufwecken.
+for(const ev of ["pointerdown","touchend","click","keydown"])
+  window.addEventListener(ev, () => Sound.unlock(), { passive:true });
+document.addEventListener("visibilitychange", () => { if(!document.hidden) Sound.unlock(); });
 
 document.getElementById("playBtn").addEventListener("click", start);
 document.getElementById("deckBtn").addEventListener("click", openDeck);
